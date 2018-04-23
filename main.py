@@ -1,4 +1,7 @@
 from numpy import *
+from math import *
+
+#### objects
 
 class Vector(object):
 
@@ -42,10 +45,19 @@ class Vector(object):
         return eval( self.vectorTempl() % tuple(
             map(lambda x: x / self.length(), self.coordinates)))
 
+    def scale(self, t):
+        return tuple(map(lambda x: x * t, self))
+
     def __add__(self, other):
         return self.vectorTempl() % tuple( list(map(lambda x,y: x+y, self, other)))
 
     def __sub__(self, other): return self.vectorTempl() % tuple(map(lambda x,y: x-y, self.coordinates, other))
+
+    def __mul__(self, t):
+        if type(t) == Vector:
+            return self.scalar(t)
+
+        return self.scale(t)
 
     def __getitem__(self, item):
         if type(item) == int:
@@ -57,60 +69,60 @@ class Vector(object):
 
     def __repr__(self): return self.vectorTempl() % self.tuple()
 
+    def __truediv__(self, t):
+        return self.scale(t)
+
+
 class Triangle(object):
 
     def __init__(self, a, b, c):
-        self.a, self.b, self.c = float(a), float(b), float(c)
+        self.a, self.b, self.c = a, b, c # points a, b and c
         ab = self.b - self.a # vector from a to b
         ac = self.c - self.a # vector from a to c
 
-    def normal(self): return
+    def normal(self):
+        return self.ab.cross(self.ac).normalize()
 
-    def __repr__(self): return "Triangle({}, {}, {})".format(self.a, self.b, self.c)
+    def intersection(self, ray):
+        w = ray.origin - self.a
+        dv = ray.direction.cross(self.ac)
+        dvxab = dv.scalar(self.ab) # d•v x b-a
 
-class Ray(object):
+        if dvxab == 0.0: return None
 
-    def __init(self, o, direction):
-        # origin = point; direction = vector
-        self.origin, self.direction = o, direction.normalize()
-        return
+        wxu = w.cross(self.ab)
 
-class Material(object):
+        r = dv.scalar(w) / dvxab
+        s = wxu.scalar(ray.direction) / dvxab
 
-    def __init__(self, r, g, b, ambient, ambientLvl, diffuse, diffuseLvl, spec, specLvl):
-        self.r, self.g, self.b = r, g, b
-        self.ambient = ambient
-        self.ambientLvl = ambientLvl
-        self.diffuse = diffuse
-        self.diffuseLvl = diffuseLvl
-        self.spec = spec
-        self.specLvl = specLvl
+        if 0 <= r <= 1 and 0 <= s <= 1 and r+s <= 1:
+            return wxu.scalar(self.ac) / dvxab
 
-    def color(self): return
+        return None
 
-class Camera(object):
+    def __repr__(self): return "Triangle({}, {}, {})".format(repr(self.a), repr(self.b), repr(self.c))
 
-    def __init__(self, origin, width, height, fieldOfView, up, focus):
-        self.origin = origin #point
-        self.width, self.height = width, height
-        self.fieldOfView = fieldOfView
-        self.c = focus
-        self.up = up # the center of an object
+class Plane(object):
 
-        ce = self.c - self.origin
-        self.f = eval("Vector(%.5f, %.5f, %.5f, %.5f)" % tuple(map(lambda x, y: (x-y)/ce.length(),
-                                                                   self.c, self.origin)))
-        self.s = self.f
+    def __init__(self, point, normal):
+        self.point, self.normal = point, normal.normalize()
 
-    def __repr__(self): return "Camera({},{},{},{},{},{})"\
-        .format(self.origin, self.width, self.height, self.fieldOfView, self.up, self.c)
+    def intersection(self, ray):
+        op_n = (ray.origin - self.point).scalar(self.normal)
+        d_n = ray.direction.scalar(self.normal)
 
-    def ratio(self): return self.width / self.height
+        if d_n: return -(op_n/d_n)
+        return None
+
+    def normalAt(self): return self.normal
+
+    def __repr__(self):
+        return "Plane({},{})".format(repr(self.point), repr(self.normal))
 
 class Sphere(object):
 
     def __init__(self, rad, center):
-        self.rad, self.center = rad, center
+        self.rad, self.center = rad, center # rad:=number; center:=point
 
     def __repr__(self):
         return "Sphere({}, {})".format(self.rad, repr(self.center))
@@ -126,6 +138,65 @@ class Sphere(object):
 
     def normalAt(self, point):
         return (point - self.center).normalize()
+
+
+####
+
+class Ray(object):
+
+    def __init(self, origin, direction):
+        self.origin, self.direction = origin, direction.normalize() #origin = point; direction = vector
+
+    def pointAt(self, t): return self.origin + (self.direction * t)
+
+    def __repr__(self):
+        return "Ray({}, {})".format(repr(self.origin), repr(self.direction))
+
+class Material(object):
+
+    def __init__(self, r, g, b, ambient, ambientLvl, diffuse, diffuseLvl, spec, specLvl):
+        self.r, self.g, self.b = r, g, b
+        self.ambient = ambient
+        self.ambientLvl = ambientLvl
+        self.diffuse = diffuse
+        self.diffuseLvl = diffuseLvl
+        self.spec = spec
+        self.specLvl = specLvl
+
+    def color(self): return
+
+    def __repr__(self):
+        return "Material({},{},{},{},{},{},{},{},{})".format(
+            self.r, self.g, self.b,
+            self.ambient, self.ambientLvl,
+            self.diffuse, self.diffuseLvl,
+            self.spec, self.specLvl)
+
+class Camera(object):
+
+    def __init__(self, origin, width, height, fieldOfView, up, focus):
+        self.origin = origin  # point
+        self.width, self.height = width, height
+        self.fieldOfView = fieldOfView
+        self.c = focus
+        self.up = up  # the center of an object
+
+        ce = self.c - self.origin
+        self.f = ce/ce.length()
+        fup = self.f.cross(up)
+        self.s = fup/fup.length()
+
+        u = self.s.cross(self.f)
+
+    def __repr__(self):
+        return "Camera({},{},{},{},{},{})".format(
+            self.origin, self.width, self.height,
+            self.fieldOfView, self.up, self.c)
+
+    def ratio(self): return self.width / self.height
+
+
+####
 
 if __name__ == "__main__":
     v0 = Vector(2, 3, 4)
@@ -144,6 +215,8 @@ if __name__ == "__main__":
     print(v0.scalar(v1))
 
     print("Hess'che", v0.normalize())
+
+    print("DIVISION", v0 /4)
 
     print("ADD:", (v0 + v1))
 
