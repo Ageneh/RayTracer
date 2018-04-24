@@ -6,6 +6,30 @@ import time
 # objects
 
 
+class Color(object):
+
+	def __init__(self, r=0, g=0, b=0):
+		self.r, self.g, self.b = r, g, b
+
+	def  toRGB(self):
+		return int(self.r), int(self.g), int(self.b)
+
+	def __str__(self):
+		return "Color: rgba({}, {}, {}, 1.0)".format(self.r, self.g, self.b)
+
+	def __repr__(self):
+		return "Color({},{},{})".format(self.r, self.g, self.b)
+
+white = Color(255, 255, 255)
+grey = Color(128, 128, 128)
+lightgrey = Color(219, 219, 219)
+darkgrey = Color(20, 20, 20)
+black = Color(0, 0, 0)
+red = Color(255, 0, 0)
+green = Color(0, 255, 0)
+blue = Color(0, 0, 255)
+yellow = Color(255,255,0)
+
 class Vector(object):
 
 	# TODO: flexible amount of coordinates; in list
@@ -80,7 +104,7 @@ class Vector(object):
 		return self.vectorTempl() % self.tuple()
 
 	def __truediv__(self, t):
-		return self.scale(t)
+		return self.scale(1/t)
 
 
 class GraphicsObject(object):
@@ -94,10 +118,11 @@ class GraphicsObject(object):
 
 class Triangle(GraphicsObject):
 
-	def __init__(self, a, b, c):
+	def __init__(self, a, b, c, mat=black):
 		self.a, self.b, self.c = a, b, c  # points a, b and c
 		self.ab = self.b - self.a  # vector from a to b
 		self.ac = self.c - self.a  # vector from a to c
+		self.mat = mat
 
 	def normal(self):
 		return self.ab.cross(self.ac).normalize()
@@ -125,8 +150,9 @@ class Triangle(GraphicsObject):
 
 class Plane(GraphicsObject):
 
-	def __init__(self, point, normal):
+	def __init__(self, point, normal, mat=black):
 		self.point, self.normal = point, normal.normalize()
+		self.mat = mat
 
 	def intersection(self, ray):
 		op_n = (ray.origin - self.point).scalar(self.normal)
@@ -143,8 +169,9 @@ class Plane(GraphicsObject):
 
 class Sphere(GraphicsObject):
 
-	def __init__(self, rad, center):
+	def __init__(self, rad, center, mat=black):
 		self.rad, self.center = rad, center  # rad:=number; center:=point
+		self.mat = mat
 
 	def __repr__(self):
 		return "Sphere({}, {})".format(self.rad, repr(self.center))
@@ -187,16 +214,31 @@ class Light(object):
 
 class Material(object):
 
-	def __init__(self, color, ambient, ambientLvl, diffuse, diffuseLvl, spec, specLvl):
-		self.color = color
+	def __init__(self, ambient, ambientLvl, diffuse, diffuseLvl, spec, specLvl):
 		self.ambient = ambient
 		self.ambientLvl = ambientLvl
-		self.diffuse = diffuse
+		self.diffuse = diffuse # color
 		self.diffuseLvl = diffuseLvl
-		self.spec = spec
+		self.spec = spec # color
 		self.specLvl = specLvl
 
-	def color(self): return
+	def color(self, diffMulti=1, specMulti=1):
+		diffuse = self.diffuse * self.diffuseLvl * diffMulti
+		spec = self.spec * self.specLvl * specMulti
+
+		components = [diffuse, spec]
+
+		for c in components:
+			for val in c.toRGB():
+				if val < 0:
+					c = black
+					break
+
+		_diffuse = diffuse * diffMulti * self.diffuseLvl
+		_specular = spec * specMulti * self.specLvl
+		_ambient = self.ambient * self.ambientLvl
+
+		return _ambient + diffuse + _specular
 
 	def __repr__(self):
 		return "Material({},{},{},{},{},{},{})".format(
@@ -229,44 +271,24 @@ class Camera(object):
 				self.fieldOfView, self.up, self.c)
 
 
-class Color(object):
-
-	def __init__(self, r=0, g=0, b=0):
-		self.r, self.g, self.b = r, g, b
-
-	def  toRGB(self):
-		return int(self.r), int(self.g), int(self.b)
-
-	def __str__(self):
-		return "Color: rgba({}, {}, {}, 1.0)".format(self.r, self.g, self.b)
-
-	def __repr__(self):
-		return "Color({},{},{})".format(self.r, self.g, self.b)
-
-
 # –––––––––––––––– - –––––––––––––––– #
 
 
 class Picture(object):
 
-	def __init__(self, resX, resY, camera, light, *objects, aspectRatio=False):
+	def __init__(self, resX, resY, camera, light, *objects):
 		self.resX, self.resY = resX, resY
-
-		if aspectRatio != False and type(aspectRatio) == int:
-			try:
-				aspectRatio = float(aspectRatio)
-				self.ratio = 1.0 / aspectRatio
-			except ValueError: aspectRatio = False
-
-		if aspectRatio == False:
-			self.ratio = float(resX) / float(resY)
+		self.ratio = float(resX) / float(resY)
 
 		self.light = light
-		self.objects = list(objects)
+		self.objects = objects
 		self.camera = camera
+		self.image = None
 
 		self.height = 2 * tan(self.camera.alpha)
 		self.width = self.ratio * self.height
+
+		self.pixelW, self.pixelH = self.width / (self.resX-1), self.height / (self.resY-1)
 
 	def castRays(self):
 		self.image = Image.new("RGB", (self.resX, self.resY))
@@ -279,7 +301,7 @@ class Picture(object):
 				total += 1
 				ray = self.calcRay(x, y) # .. cast a ray
 				maxDistance = float('inf')
-				color = black.toRGB()
+				color = black
 				for obj in self.objects:
 					hitdist = obj.intersection(ray)
 					if x == 140 and y == 163:
@@ -290,9 +312,9 @@ class Picture(object):
 							# continue until its closest point has been found
 							# and then color the pixel
 							maxDistance = hitdist
-							color = white.toRGB()
+							color = red
 
-					self.image.putpixel((x, y), color)
+					self.image.putpixel((x, y), color.toRGB())
 
 				if color != black:
 					colorTotal += 1
@@ -314,28 +336,10 @@ class Picture(object):
 				ray = Ray(self.origin, self.f + xComp + yComp)
 
 	def calcRay(self, x, y):
-		height = 2 * tan(self.camera.alpha)
-		width = (self.width / self.height) * height
-
-		pixelWidth = self.width / (self.resX - 1)
-		pixelHeight = self.height / (self.resY - 1)
-
-		xComp = self.camera.s.scale(x * pixelWidth - self.width / 2)  # scales width of each pixel
-		yComp = self.camera.u.scale(y * pixelHeight - self.height / 2)  # s# cales height of each pixel
+		#xComp = self.camera.s.scale(x * pixelWidth - self.width / 2)  # scales width of each pixel
+		#yComp = self.camera.u.scale(y * pixelHeight - self.height / 2)  # s# cales height of each pixel
+		xComp = self.camera.s.scale(x * self.pixelW - self.width / 2)  # scales width of each pixel
+		yComp = self.camera.u.scale(y * self.pixelH - self.height / 2)  # s# cales height of each pixel
 
 		# return Ray(self.camera.origin, self.camera.f + xComp + yComp)
-		return Ray(self.camera.origin, (self.camera.f + xComp) + yComp)
-
-
-# colors
-
-
-white = Color(255, 255, 255)
-grey = Color(128, 128, 128)
-lightgrey = Color(219, 219, 219)
-darkgrey = Color(20, 20, 20)
-black = Color(0, 0, 0)
-red = Color(255, 0, 0)
-green = Color(0, 255, 0)
-blue = Color(0, 0, 255)
-yellow = Color(255,255,0)
+		return Ray(self.camera.origin, self.camera.f + xComp + yComp)
