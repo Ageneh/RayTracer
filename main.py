@@ -1,22 +1,19 @@
 from gencg.hareg001.objects import *
 
+WIDTH = 400
+HEIGHT = 400
+
 if __name__ == "__main__":
 
-    white = Color(255, 255, 255)
-    grey = Color(128, 128, 128)
-    darkgrey = Color(20, 20, 20)
-    black = Color(0, 0, 0)
+    up = Vector(0, -1, 0)
+    focus_point = Vector(0, 45, 250)
 
-    up = Vector(0,-1,0)
+    sphere = Sphere(20, Vector(-30, 0, 100))
 
-    v = Vector(0, 50, -50)
-    camera = Camera(200, 200, Vector(0, -5, 0), 90, up, up)
+    camera = Camera(Vector(0,-5,0),focus_point, up, 70)
+    light = Light(100, 200, -75)
 
-    light = Light(Vector(-100, 200, -40), 1, Color(255, 255, 255))
-    sp = Sphere(100, Vector(20, 0, 100))
-
-    img = Picture(camera, light, sp)
-
+    img = Picture(WIDTH, HEIGHT, camera, light, sphere, aspectRatio=False)
     img.castRays()
 
 else :

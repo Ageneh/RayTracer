@@ -18,6 +18,7 @@ class Vector(object):
 		return sum(list(map(lambda x, y: x * y, self, vector)))
 
 	def cross(self, vector):
+		"""Calculates the cross product of the vector self and another given vector vector."""
 		vector1 = self.tuple()
 		vector2 = vector.tuple()
 
@@ -48,8 +49,11 @@ class Vector(object):
 		return "Vector(%f, %f, %f)"
 
 	def normalize(self):
-		return eval(self.vectorTempl() % tuple(
-				map(lambda x: x / self.length(), self.coordinates)))
+		length = self.length()
+		return eval(
+				self.vectorTempl() %
+				tuple( map(lambda x: x/length, self.coordinates) )
+		)
 
 	def scale(self, t):
 		return eval(self.vectorTempl() % tuple(map(lambda x: x * t, self)))
@@ -92,8 +96,8 @@ class Triangle(GraphicsObject):
 
 	def __init__(self, a, b, c):
 		self.a, self.b, self.c = a, b, c  # points a, b and c
-		ab = self.b - self.a  # vector from a to b
-		ac = self.c - self.a  # vector from a to c
+		self.ab = self.b - self.a  # vector from a to b
+		self.ac = self.c - self.a  # vector from a to c
 
 	def normal(self):
 		return self.ab.cross(self.ac).normalize()
@@ -149,7 +153,7 @@ class Sphere(GraphicsObject):
 		co = self.center - ray.origin  # co = c-o
 		v = co.scalar(ray.direction)
 
-		discriminant = v ** 2 - co.scalar(co) + self.rad ** 2
+		discriminant = v**2 - co.scalar(co) + self.rad ** 2
 
 		if discriminant < 0:
 			return None
@@ -204,26 +208,20 @@ class Material(object):
 
 class Camera(object):
 
-	def __init__(self, pxX, pxY, origin, fieldOfView, up, c):
-		self.origin, self.c = origin, c  # points, c:=the center of an object
-		self.fieldOfView = fieldOfView
-		self.alpha = self.fieldOfView / 2
+	def __init__(self, origin, focus, up, fieldOfView):
+		self.origin = origin  # points
+		self.focus = focus # the point to which the camera is aiming at
+		self.up = up # global up vector/direction of up
+		self.fov = fieldOfView # field of view
+		self.alpha = self.fov / 2
 
-		self.pxX, self.pxY = pxX, pxY
-		self.ratio = self.pxX / self.pxY
+		ce = self.focus - self.origin
+		self.f = ce / ce.length() # perpendicular u vector (x-axis)
 
-		self.height = 2 * tan(self.alpha)
-		self.width = self.ratio * self.height
+		fxup = self.f.cross(self.up)
+		self.s = fxup / fxup.length() # s vector (z-axis)
 
-		self.up = up  # global up-vector
-
-		ce = self.c - self.origin
-		self.f = ce / ce.length()
-		fup = self.f.cross(up)
-		self.s = fup / fup.length()
-
-		self.u = self.s.cross(self.f)
-
+		self.u = self.s.cross(self.f) # f vector (y-axis)
 
 	def __repr__(self):
 		return "Camera({},{},{},{},{},{})".format(
@@ -233,10 +231,10 @@ class Camera(object):
 
 class Color(object):
 
-	def __init__(self, r, g, b):
+	def __init__(self, r=0, g=0, b=0):
 		self.r, self.g, self.b = r, g, b
 
-	def toRGB(self):
+	def  toRGB(self):
 		return int(self.r), int(self.g), int(self.b)
 
 	def __str__(self):
@@ -251,33 +249,59 @@ class Color(object):
 
 class Picture(object):
 
-	def __init__(self, camera, light, objects):
+	def __init__(self, resX, resY, camera, light, *objects, aspectRatio=False):
+		self.resX, self.resY = resX, resY
+
+		if aspectRatio != False and type(aspectRatio) == int:
+			try:
+				aspectRatio = float(aspectRatio)
+				self.ratio = 1.0 / aspectRatio
+			except ValueError: aspectRatio = False
+
+		if aspectRatio == False:
+			self.ratio = float(resX) / float(resY)
+
+		self.light = light
+		self.objects = list(objects)
 		self.camera = camera
-		self.objects = []
-		self.objects.append(objects)
-		self.image = Image.new("RGB", (self.camera.pxX, self.camera.pxY))
+
+		self.height = 2 * tan(self.camera.alpha)
+		self.width = self.ratio * self.height
 
 	def castRays(self):
-		total = 0
-		colorTotal = 0
-		for x in range(self.camera.pxX):
-			for y in range(self.camera.pxY):
+		self.image = Image.new("RGB", (self.resX, self.resY))
+
+		total = colorTotal = 0
+
+		for x in range(self.resX):
+			for y in range(self.resY):
+				# for each pixel of the image ...
 				total += 1
-				ray = self.calcRay(x, y)
+				ray = self.calcRay(x, y) # .. cast a ray
 				maxDistance = float('inf')
-				color = black
-				for object in self.objects:
-					hitdist = object.intersection(ray)
+				color = black.toRGB()
+				for obj in self.objects:
+					hitdist = obj.intersection(ray)
+					if x == 140 and y == 163:
+						print()
 					if hitdist:
+						# if the ray intersected an object ...
 						if hitdist < maxDistance:
-							colorTotal += 1
+							# continue until its closest point has been found
+							# and then color the pixel
 							maxDistance = hitdist
-							color = object.colorAt(ray)
-							s = str(total) + "-" + str(colorTotal)
-							print(s)
-							self.image.putpixel((x, y), color.toRGB())
-		self.image.save("/Users/HxA/PycharmProjects/RayTracer" + "TEST_" + str(int(round(time.time() * 1000))) + ".jpg",
+							color = white.toRGB()
+
+					self.image.putpixel((x, y), color)
+
+				if color != black:
+					colorTotal += 1
+					s = str(total) + "-" + str(colorTotal)
+					print(s)
+
+		self.image.save("/Users/HxA/PycharmProjects/RayTracer" + str(int(round(time.time() * 1000))) + ".jpg",
 						"JPEG", quality=90)
+		self.image.show()
 
 	def sendRay(self):
 		pxWidth = self.width / (self.pxX - 1)
@@ -290,17 +314,26 @@ class Picture(object):
 				ray = Ray(self.origin, self.f + xComp + yComp)
 
 	def calcRay(self, x, y):
-		xComp = self.camera.s.scale(x * self.camera.pxX - self.camera.pxX / 2)  # scales width of each pixel
-		yComp = self.camera.u.scale(y * self.camera.pxY - self.camera.pxY / 2)  # s# cales height of each pixel
+		height = 2 * tan(self.camera.alpha)
+		width = (self.width / self.height) * height
 
-		r = Ray(self.camera.origin, (self.camera.f + xComp) + yComp)
+		pixelWidth = self.width / (self.resX - 1)
+		pixelHeight = self.height / (self.resY - 1)
+
+		xComp = self.camera.s.scale(x * pixelWidth - self.width / 2)  # scales width of each pixel
+		yComp = self.camera.u.scale(y * pixelHeight - self.height / 2)  # s# cales height of each pixel
+
 		# return Ray(self.camera.origin, self.camera.f + xComp + yComp)
-		return r
+		return Ray(self.camera.origin, (self.camera.f + xComp) + yComp)
 
 
 # colors
 
 
+white = Color(255, 255, 255)
+grey = Color(128, 128, 128)
+lightgrey = Color(219, 219, 219)
+darkgrey = Color(20, 20, 20)
 black = Color(0, 0, 0)
 red = Color(255, 0, 0)
 green = Color(0, 255, 0)
