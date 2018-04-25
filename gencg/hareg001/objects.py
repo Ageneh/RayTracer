@@ -253,12 +253,17 @@ class Sphere(GraphicsObject):
 
 class Ray(object):
 
+	_REPR = "Ray({}, {})"
+
 	def __init__(self, origin, direction):
 		self.origin, self.direction = origin, direction.normalize()  # origin = point; direction = vector
 
 	def pointAt(self, t): return self.origin + (self.direction * t)
 
-	def __repr__(self): return "Ray({}, {})".format(repr(self.origin), repr(self.direction))
+	def __repr__(self): return self._REPR.format(repr(self.origin), repr(self.direction))
+
+	def __mul__(self, other):
+		return self.origin + self.direction * other
 
 
 class Light(object):
@@ -311,8 +316,8 @@ class Picture(object):
 		self.pixelW, self.pixelH = self.width / (self.resX - 1), self.height / (self.resY - 1)
 
 	def castRays(self):
-		# _prop_str = "_".join([str("W" + str(self.resX)), str("H" + str(self.resY)), str("FOV" + str(self.camera.fov))])
-		_prop_str = ""
+		_prop_str = "_".join([str("W" + str(self.resX)), str("H" + str(self.resY)), str("FOV" + str(self.camera.fov))])
+
 		self.image = Image.new("RGB", (self.resX, self.resY))
 
 		total = colorTotal = 0
@@ -338,8 +343,9 @@ class Picture(object):
 							# continue until its closest point has been found
 							# and then color the pixel
 							maxDistance = hitdist
+							color = self.calcIllumination(obj_, ray, hitdist)
 							#color = self.calcIllumination(obj, ray, hitdist)
-				if hitdist:
+				if hitdist == "hello":
 					color = self.calcIllumination(obj_, ray, hitdist)
 				self.image.putpixel((x, y), color.toRGB())
 
@@ -361,16 +367,18 @@ class Picture(object):
 		# angel between two vectors: <v,w> / ||v||*||w||
 		light_vect = self.light.origin
 
-		intersectionP = ray.direction * ((1)*dist)  # vector towards the object/intersection point #vector
+		#intersectionP = ray.direction * ((1)*dist)  # vector towards the object/intersection point #vector
+		intersectionP = ray * ((1)*dist)  # vector towards the object/intersection point #vector
 		l = light_vect - intersectionP
 		n = object.normalAt(intersectionP)
 		d = ray.origin - intersectionP
 
 		_diff_scalar = light_vect.normalize().scalar(object.normalAt(intersectionP))
 
-		phi = l.normalize().scalar(n) / (l.length() * n.length())
-
-		theta = phi - n.normalize().scalar(d) / (n.length() * d.length())
+		#phi = l.normalize().scalar(n) / (l.length() * n.length())
+		#theta = phi - n.normalize().scalar(d) / (n.length() * d.length())
+		phi = l.scalar(n) / (l.length() * n.length())
+		theta = phi - n.scalar(d) / (n.length() * d.length())
 
 		return object.mat.color(diffMulti=phi, specMulti=theta)
 
