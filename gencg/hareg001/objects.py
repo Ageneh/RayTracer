@@ -5,7 +5,7 @@ import time
 
 # objects
 
-# TODO: shading und dann farben!!
+# TODO: shading und dann farben!! @see: Picture.shade()
 
 
 class Color(object):
@@ -373,3 +373,7 @@ class Picture(object):
 		theta = phi - n.normalize().scalar(d) / (n.length() * d.length())
 
 		return object.mat.color(diffMulti=phi, specMulti=theta)
+
+	def shade(self):
+		#TODO shading
+		return
