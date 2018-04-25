@@ -1,9 +1,11 @@
-from numpy import *
 from PIL import Image
+from numpy import *
 import time
 
 
 # objects
+
+# TODO: shading und dann farben!!
 
 
 class Color(object):
@@ -21,7 +23,7 @@ class Color(object):
 
 	def __add__(self, other):
 		if type(other) == Color:
-			return eval(self._REPR % tuple(map(lambda x, y: x + y if x + y <= 255 else 255, self.values, other)))
+			return eval(self._REPR % tuple(map(lambda x, y: x + y, self.values, other)))
 
 	def __getitem__(self, item):
 		if type(item) == int:
@@ -36,7 +38,7 @@ class Color(object):
 		return eval(self.__mul__(1 / other))
 
 
-class Material(object):
+class Mater(object):
 
 	def __init__(self, ambient, ambientLvl, diffuse, diffuseLvl, spec, specLvl):
 		self.ambient = ambient  # color
@@ -46,12 +48,13 @@ class Material(object):
 		self.spec = spec  # color
 		self.specLvl = specLvl  # coefficient
 
-	def color(self, diffMulti=0, specMulti=0):
+	def color(self, diffMulti=1, specMulti=1):
 		diffMulti = cos(diffMulti)
 		specMulti = cos(specMulti)
 
 		diffuse = self.diffuse * self.diffuseLvl * diffMulti
 		spec = self.spec * self.specLvl * specMulti
+		_ambient = self.ambient * self.ambientLvl
 
 		components = [diffuse, spec]
 
@@ -64,7 +67,6 @@ class Material(object):
 					c = 255
 					break
 
-		_ambient = self.ambient * self.ambientLvl
 		_diffuse = diffuse * diffMulti * self.diffuseLvl
 		_specular = spec * specMulti * self.specLvl
 
@@ -90,7 +92,6 @@ yellow = Color(255, 255, 0)
 
 
 class Vector(object):
-	# TODO: flexible amount of coordinates; in list
 	_REPR = "Vector(%f, %f, %f)"
 
 	def __init__(self, x, y, z):
@@ -176,7 +177,7 @@ class GraphicsObject(object):
 
 class Triangle(GraphicsObject):
 
-	def __init__(self, a, b, c, mat=black):
+	def __init__(self, a, b, c, mat):
 		self.a, self.b, self.c = a, b, c  # points a, b and c
 		self.ab = self.b - self.a  # vector from a to b
 		self.ac = self.c - self.a  # vector from a to c
@@ -207,7 +208,7 @@ class Triangle(GraphicsObject):
 
 class Plane(GraphicsObject):
 
-	def __init__(self, point, normal, mat=black):
+	def __init__(self, point, normal, mat):
 		self.point, self.normal = point, normal.normalize()
 		self.mat = mat
 
@@ -225,7 +226,7 @@ class Plane(GraphicsObject):
 
 class Sphere(GraphicsObject):
 
-	def __init__(self, rad, center, mat=black):
+	def __init__(self, rad, center, mat):
 		self.rad, self.center = rad, center  # rad:=number; center:=point
 		self.mat = mat
 
@@ -360,7 +361,7 @@ class Picture(object):
 		# angel between two vectors: <v,w> / ||v||*||w||
 		light_vect = self.light.origin
 
-		intersectionP = ray.direction * ((-1)*dist)  # vector towards the object/intersection point #vector
+		intersectionP = ray.direction * ((1)*dist)  # vector towards the object/intersection point #vector
 		l = light_vect - intersectionP
 		n = object.normalAt(intersectionP)
 		d = ray.origin - intersectionP
