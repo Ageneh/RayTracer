@@ -1,21 +1,28 @@
 from gencg.hareg001.objects import *
 
-WIDTH = 300
+WIDTH = 400
 HEIGHT = 300
 
 if __name__ == "__main__":
 
-    print(black.toRGB())
+    print(black)
 
-    up = Vector(0, 1, 0)
-    focus_point = Vector(0, 45, 250)
+    up = Vector(0, -1, 0)
+    focus_point = Vector(0, 0, 250)
 
-    sphere = Sphere(30, Vector(0, 0, 100), Material(red, red, green, red, red, red))
+    plane = Plane(
+            Vector(0, -60, 0),
+            Vector(0, 1, 0),
+            Material(white, 1, red, 1.6, white, 1)
+    )
 
-    camera = Camera(Vector(0,0,-50),focus_point, up, 70)
-    light = Light(100, 200, -75)
+    mat1 = Material(red, 1, red*1.3, 1, red, 1)
+    sphere = Sphere(30, Vector(0, 0, 100), mat1)
 
-    img = Picture(WIDTH, HEIGHT, camera, light, sphere)
+    camera = Camera(Vector(0,0,-50),focus_point, up, 120)
+    light = Light(Vector(100, 200, -75), 1, white)
+
+    img = Picture(WIDTH, HEIGHT, camera, light, sphere, plane)
     img.castRays()
 
 else :
