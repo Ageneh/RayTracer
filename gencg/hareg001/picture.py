@@ -47,29 +47,46 @@ class Picture(object):
 			"JPEG", quality=75)
 		self.image.show()
 
+	def _calAngel_(self, v, w):
+		return arccos((v * w) / ( v.length() * w.length() ))
+
 	def computeDirectLight(self, object, ray, dist):
 		# angel between two vectors: <v,w> / ||v||*||w||
+
 		light_origin = self.light.origin
 		light_intensity = self.light.intensity
-		# intersectionP = ray.direction * ((1)*dist)  # vector towards the object/intersection point #vector
-		intersectionP = ray.pointAt(dist)  # vector towards the object/intersection point #vector
-		l = (light_origin - intersectionP).normalize()
-		n = object.normalAt(intersectionP)
-		l_r = l.reflect(n)
-		d = ray.origin - intersectionP
 
-		_diff_scalar = light_origin.normalize().scalar(object.normalAt(intersectionP))
+		intersection = ray.pointAt(dist)  					# the point where the ray intersects the object #vector
 
-		# phi = l.normalize().scalar(n) / (l.length() * n.length())
-		# theta = phi - n.normalize().scalar(d) / (n.length() * d.length())
-		#_diff = l.scalar(n) / (l.length() * n.length())
-		#_spec = _diff - n.scalar(d) / (n.normalize().length() * d.normalize().length())
+		# (S44)
+		l = (light_origin - intersection).normalize()
+		n = object.normalAt(intersection)
+		l_reflected = l.reflect(n)
+		d = ray.origin - intersection
 
-		_diff = (l * n) * light_intensity
-		_l_r = l_r * ray.direction.normalize()
-		_spec = _l_r * light_intensity
 
-		return object.mat.color(diffMulti=_diff, specMulti=_spec)
+		#################
+
+		a = self._calAngel_(n.normalize(), l)
+		phi = cos(a) * light_intensity						# angel between the normal of the intersection point and
+															# the light vector; used as the factor by which the
+															# diffusion color will be multiplied
+
+		to_d = (ray.origin - intersection).normalize()
+		b = self._calAngel_(to_d, l_reflected.normalize())
+		theta = cos(b) * light_intensity					# angel between the normal of the intersection point and
+															# the light vector; used as the factor by which the
+															# diffusion color will be multiplied
+
+
+		#################
+
+
+		#_l_r = l_reflected * ray.direction.normalize() 		# the value for the vector of the reflected light (S44)
+		#_diff = (l * n) * light_intensity 					# the factor by which the diffusion color will be multiplied
+		#_spec = _l_r * light_intensity 						# the factor by which the specular color will be multiplied
+
+		return object.mat.color(diffMulti=phi, specMulti=theta)
 
 	def computeReflectedRay(self, object, ray, dist):
 		s = ray.pointAt(dist) # intersection

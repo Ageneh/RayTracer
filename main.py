@@ -1,4 +1,4 @@
-from gencg.hareg001.objects import *
+from gencg.hareg001.picture import *
 
 WIDTH = 400
 HEIGHT = 300
@@ -18,7 +18,7 @@ if __name__ == '__main__':
     )
 
     camera = Camera(Vector(0,20,-150),focus_point, up, 120)
-    light = Light(Vector(10, 100, 0), 0.8, lightgrey)
+    light = Light(Vector(10, 100, 100), 0.8, yellow)
 
     img = Picture(WIDTH, HEIGHT, camera, light, [sphere, plane], reflection=1)
     img.castRays()
