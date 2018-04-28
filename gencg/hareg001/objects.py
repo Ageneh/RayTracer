@@ -32,7 +32,8 @@ class Color(object):
 			return self.values[self._VALDICT[item]]
 
 	def __mul__(self, other):
-		return eval(self._REPR % tuple(map(lambda x: x * other, self.values)))
+		if type(other) != Color:
+			return eval(self._REPR % tuple(map( lambda x: x*other, self )))
 
 	def __truediv__(self, other):
 		return eval(self.__mul__(1 / other))
@@ -50,7 +51,7 @@ class Mater(object):
 
 	def color(self, diffMulti=1, specMulti=1):
 		diffMulti = cos(diffMulti)
-		specMulti = cos(specMulti)
+		pecMulti = cos(specMulti)
 
 		diffuse = self.diffuse * self.diffuseLvl * diffMulti
 		spec = self.spec * self.specLvl * specMulti
@@ -85,7 +86,7 @@ grey = Color(128, 128, 128)
 lightgrey = Color(219, 219, 219)
 darkgrey = Color(20, 20, 20)
 black = Color(0, 0, 0)
-red = Color(255, 0, 0)
+red = Color(255, 24, 70)
 green = Color(0, 255, 0)
 blue = Color(0, 0, 255)
 yellow = Color(255, 255, 0)
@@ -128,15 +129,20 @@ class Vector(object):
 
 	def length(self):
 		"""Returns the length of a vector."""
-		return sqrt(sum(list(map(lambda x: x ** 2, self.coordinates))))
+		return sqrt(sum(list(map(lambda x: x ** 2, self))))
 
 	def normalize(self):
-		length = self.length()
-		return eval(self._REPR %
-					tuple(map(lambda x: x / length, self.coordinates)))
+		"""Returns a normalized vector by dividing each component of the vector."""
+
+		#length = self.length() # length of the vector;
+		#return eval(self._REPR % tuple(map(lambda x: x / length, self.coordinates)))
+		return self / self.length()
 
 	def scale(self, t):
 		return eval(self._REPR % tuple(map(lambda x: x * t, self.coordinates)))
+
+	def reflect(self, relction_axis):
+		return self - 2 * self.scalar(relction_axis) * relction_axis
 
 	def __add__(self, other):
 		return eval(self._REPR % tuple(list(map(lambda x, y: x + y, self, other))))
@@ -258,7 +264,9 @@ class Ray(object):
 	def __init__(self, origin, direction):
 		self.origin, self.direction = origin, direction.normalize()  # origin = point; direction = vector
 
-	def pointAt(self, t): return self.origin + (self.direction * t)
+	def pointAt(self, t):
+		"""Returns a point (vector)."""
+		return self.origin + (self.direction * t)
 
 	def __repr__(self): return self._REPR.format(repr(self.origin), repr(self.direction))
 
@@ -299,89 +307,47 @@ class Camera(object):
 # –––––––––––––––– - –––––––––––––––– #
 
 
-class Picture(object):
+class HitPointData():
 
-	def __init__(self, resX, resY, camera, light, objects):
-		self.resX, self.resY = resX, resY
-		self.ratio = float(resX) / float(resY)
+	def __init__(self, ray=None, obj=None, dist=None):
+		self.data = {
+			"ray":ray,
+			"obj":obj,
+			"dist":dist
+		}
 
-		self.light = light
-		self.objects = objects
-		self.camera = camera
-		self.image = None
+	def __getitem__(self, item):
+		if type(item) == str:
+			return self.data[item]
 
-		self.height = 2 * tan(self.camera.alpha)
-		self.width = self.ratio * self.height
 
-		self.pixelW, self.pixelH = self.width / (self.resX - 1), self.height / (self.resY - 1)
 
-	def castRays(self):
-		_prop_str = "_".join([str("W" + str(self.resX)), str("H" + str(self.resY)), str("FOV" + str(self.camera.fov))])
+if __name__ == '__main__':
+	v = Vector(-343, 23, 63)
 
-		self.image = Image.new("RGB", (self.resX, self.resY))
+	print(v.normalize())
+	print(v / v.length())
 
-		total = colorTotal = 0
 
-		for x in range(self.resX):
-			for y in range(self.resY):
-				# for each pixel of the image ...
-				color = black
-				maxDistance = float('inf')
 
-				total += 1
 
-				ray = self.calcRay(x, y)  # .. cast a ray
-				hitdist = None
-				obj_ = None
-				for obj in self.objects:
-					obj_ = obj
-					hitdist = obj.intersection(ray)
-					if hitdist:
-						# if the ray intersected an object ...
 
-						if hitdist < maxDistance:
-							# continue until its closest point has been found
-							# and then color the pixel
-							maxDistance = hitdist
-							color = self.calcIllumination(obj_, ray, hitdist)
-							#color = self.calcIllumination(obj, ray, hitdist)
-				if hitdist == "hello":
-					color = self.calcIllumination(obj_, ray, hitdist)
-				self.image.putpixel((x, y), color.toRGB())
 
-				if color != black:
-					colorTotal += 1
-			# print("%.2f%%" % (colorTotal / total * 100))
 
-		self.image.save(
-			"/Users/HxA/PycharmProjects/RayTracer" + str(int(round(time.time() * 1000))) + "_" + _prop_str + ".jpg",
-			"JPEG", quality=75)
-		self.image.show()
 
-	def calcRay(self, x, y):
-		xComp = self.camera.s.scale(x * self.pixelW - self.width / 2)  # scales width of each pixel
-		yComp = self.camera.u.scale(y * self.pixelH - self.height / 2)  # s# cales height of each pixel
-		return Ray(self.camera.origin, self.camera.f + xComp + yComp)
 
-	def calcIllumination(self, object, ray, dist):
-		# angel between two vectors: <v,w> / ||v||*||w||
-		light_vect = self.light.origin
 
-		#intersectionP = ray.direction * ((1)*dist)  # vector towards the object/intersection point #vector
-		intersectionP = ray * ((1)*dist)  # vector towards the object/intersection point #vector
-		l = light_vect - intersectionP
-		n = object.normalAt(intersectionP)
-		d = ray.origin - intersectionP
 
-		_diff_scalar = light_vect.normalize().scalar(object.normalAt(intersectionP))
 
-		#phi = l.normalize().scalar(n) / (l.length() * n.length())
-		#theta = phi - n.normalize().scalar(d) / (n.length() * d.length())
-		phi = l.scalar(n) / (l.length() * n.length())
-		theta = phi - n.scalar(d) / (n.length() * d.length())
 
-		return object.mat.color(diffMulti=phi, specMulti=theta)
 
-	def shade(self):
-		#TODO shading
-		return
+
+
+
+
+
+
+
+
+
+#
