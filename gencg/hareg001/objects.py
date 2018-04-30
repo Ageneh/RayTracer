@@ -3,20 +3,30 @@ from numpy import *
 
 # objects
 
-
+# –––––––––––––––– - COLORS - –––––––––––––––– #
 class Color(object):
 	_VALDICT = {"r": 0, "g": 1, "b": 2}
 	_REPR = "Color(%d,%d,%d)"
 
 	def __init__(self, r, g, b, alpha=1.0):
-		self.values = (r, g, b)
+		self.values = []
+		min, max = self.MIN_VAL(), self.MAX_VAL()
+		for val in [r, g, b]:
+			if val < min: self.values.append(min)
+			elif val > max: self.values.append(max)
+			else: self.values.append(val)
 		self.alpha = alpha
 
-	def __repr__(self): return self._REPR % tuple(self.values)
+	def __repr__(self):
+		return self._REPR % tuple(self.values)
 
 	def toRGB(self): return tuple(self.values)
 
-	def toRGBA(self): return self.values + (self.alpha,)
+	def toRGBA(self): return self.toRGB() + (self.alpha,)
+
+	def MIN_VAL(*v): return 0
+
+	def MAX_VAL(*v): return 255
 
 	def __add__(self, other):
 		if type(other) == Color:
@@ -29,13 +39,14 @@ class Color(object):
 			return self.values[self._VALDICT[item]]
 
 	def __mul__(self, other):
-		if type(other) != Color:
-			return eval(self._REPR % tuple(map( lambda x: x*other, self )))
+		# if type(other) != Color:
+		if type(other) in (int, float, float64):
+			other = float(other)
+			return eval(self._REPR % tuple(map(lambda x: x * other, self)))
 
-	def __truediv__(self, other): return eval(self.__mul__(1 / other))
+	def __truediv__(self, other):
+		return eval(self.__mul__(1 / other))
 
-
-# –––––––––––––––– - COLORS - –––––––––––––––– #
 
 white = Color(255, 255, 255)
 lightgrey = Color(219, 219, 219)
@@ -46,6 +57,7 @@ red = Color(242, 7, 7)
 green = Color(5, 210, 25)
 blue = Color(5, 80, 210)
 yellow = Color(255, 255, 0)
+
 
 # –––––––––––––––– END COLORS –––––––––––––––– #
 
@@ -61,33 +73,9 @@ class Material(object):
 		self.specLvl = specLvl  # coefficient
 		self.surface = surface
 
-	def color_(self, intensity, diffMulti=1, specMulti=1):
-		diffuse = self.diffuse * self.diffuseLvl * diffMulti
-		specular = self.spec * self.specLvl * specMulti
-
-		_ambient = self.ambient * self.ambientLvl
-
-		values = [diffuse, specular]
-		for c in range(len(values)):
-			for i in range(len(values[c].toRGB())):
-				if values[c].toRGB()[i] < 0:
-					values[c] = black
-					break
-				elif values[c].toRGB()[i] > 255:
-					values[c] = white
-					break
-
-		diffuse, specular = values[0], values[1]
-
-		diffuse = diffuse * self.diffuseLvl * diffMulti
-		specular = specular * self.specLvl * specMulti
-
-		return (_ambient + diffuse + specular) * intensity
-
-
 	def color(self, diffMulti=0, specMulti=0):
 		diffMulti = cos(diffMulti)
-		specMulti = cos(specMulti)**self.surface
+		specMulti = cos(specMulti) ** self.surface
 
 		diffuse = self.diffuse * self.diffuseLvl * diffMulti
 		specular = self.spec * self.specLvl * specMulti
@@ -96,25 +84,21 @@ class Material(object):
 
 		values = [diffuse, specular]
 		for c in range(len(values)):
-			_temp_color = []
-			for i in range(len(values[c].toRGB())):
+			for i in range(len( values[c].toRGB() )):
 				color_val = values[c].toRGB()[i]
-				if color_val < 0:
-					#_temp_color.append(abs(color_val))
-					_temp_color.append(0)
-					#values[c] = black
-				#elif color_val > 255: _temp_color.append(255)
-					#values[c].toRGB()[i] = 255
-				else: _temp_color.append(color_val)
-			values[c] = Color(_temp_color[0], _temp_color[1], _temp_color[2])
-
+				if color_val < Color.MIN_VAL():
+					values[c] = black
+					break
+				elif color_val > Color.MAX_VAL():
+					values[c] = white
+					break
 
 		diffuse, specular = values[0], values[1]
 
 		_diffuse = diffuse * diffMulti * self.diffuseLvl
 		_specular = specular * specMulti * self.specLvl
 
-		return _ambient + diffuse + specular
+		return _ambient + _diffuse + _specular
 
 	def __repr__(self):
 		return "Material({},{},{},{},{},{})".format(
@@ -124,7 +108,6 @@ class Material(object):
 
 
 # –––––––––––––––– - –––––––––––––––– #
-
 
 class Vector(object):
 	_REPR = "Vector(%f, %f, %f)"
@@ -173,12 +156,16 @@ class Vector(object):
 	def normalize(self):
 		"""Returns a normalized vector by dividing each component of the vector."""
 
-		#length = self.length() # length of the vector;
-		#return eval(self._REPR % tuple(map(lambda x: x / length, self.coordinates)))
+		# length = self.length() # length of the vector;
+		# return eval(self._REPR % tuple(map(lambda x: x / length, self.coordinates)))
 		return self / self.length()
 
 	def reflect(self, reflection_axis):
-		return self - 2 * reflection_axis.scalar(self) * reflection_axis # (S48)
+		return self - (2 * (self.scalar(reflection_axis)) * reflection_axis)  # (S48)
+
+	def calcAngle(self, w):
+		"""Calculates the angle between two vectors."""
+		return arccos((self * w) / (self.length() * w.length()))
 
 	def __add__(self, other):
 		return eval(self._REPR % tuple(list(map(lambda x, y: x + y, self, other))))
@@ -234,7 +221,7 @@ class Triangle(GraphicsObject):
 	def calcMidpoint(self, points):
 		s = Vector(0, 0, 0)
 		for i in range(len(points)):
-			n = i+1
+			n = i + 1
 			a = points[i] / n
 			s += a
 		return s
@@ -267,7 +254,7 @@ class Plane(GraphicsObject):
 	def __init__(self, point, normal, mat):
 		super().__init__(point)  # saves the origin in super
 		self.point, self.normal = point, normal.normalize()
-		self.mat = mat # material
+		self.mat = mat  # material
 
 	def intersection(self, ray):
 		op_n = (ray.origin - self.point).scalar(self.normal)
@@ -286,7 +273,7 @@ class Sphere(GraphicsObject):
 	def __init__(self, rad, center, mat):
 		super().__init__(center)  # saves the origin in super
 		self.rad, self.center = rad, center  # rad:=number; center:=point
-		self.mat = mat # material
+		self.mat = mat  # material
 
 	def __repr__(self):
 		return "Sphere({},{},{})".format(self.rad, repr(self.center), repr(self.mat))
@@ -308,9 +295,7 @@ class Sphere(GraphicsObject):
 
 # –––––––––––––––– - –––––––––––––––– #
 
-
 class Ray(object):
-
 	_REPR = "Ray({}, {})"
 
 	def __init__(self, origin, direction):
@@ -331,7 +316,7 @@ class Light(GraphicsObject):
 	def __init__(self, origin, intensity):
 		super().__init__(origin)
 		self.intensity = intensity  # origin = vector
-		#self.origin, self.intensity = origin, intensity  # origin = vector
+# self.origin, self.intensity = origin, intensity  # origin = vector
 
 
 class Camera(object):
@@ -363,18 +348,16 @@ class Camera(object):
 
 # –––––––––––––––– - –––––––––––––––– #
 
-
 class HitPointData():
-
 	_RAY = "ray"
 	_OBJ = "obj"
 	_DIST = "dist"
 
 	def __init__(self, ray=None, obj=None, dist=None):
 		self.data = {
-			"ray":ray,
-			"obj":obj,
-			"dist":dist
+			"ray": ray,
+			"obj": obj,
+			"dist": dist
 		}
 
 	def __getitem__(self, item):
@@ -390,30 +373,8 @@ if __name__ == '__main__':
 	m = Material(red, 0.4, red * 0.4, 0.6, grey, 0.3)
 	print(m)
 
-
 	print(v.normalize())
 	print(v / v.length())
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #

@@ -53,40 +53,8 @@ class Picture(object):
 		yComp = self.camera.u.scale((y * self.pixelH - self.height / 2))  # s# cales height of each pixel
 		return Ray(self.camera.origin, self.camera.f + xComp + yComp)
 
-	def _calcAngle_(self, v, w):
-		"""Calculates the angle between two vectors."""
-		return acos((v * w) / ( v.length() * w.length() ))
-
-	def computeDirectLight(self, hit):
-		ray = hit[HitPointData._RAY]
-		object = hit[HitPointData._OBJ]
-		dist = hit[HitPointData._DIST]
-
-		intensity = self.light.intensity
-
-		diffMulti, specMulti = 0, 0
-
-		light = self.light
-
-		intersection = ray.pointAt(dist)
-		n = object.normalAt(intersection)
-		l = (light.origin - intersection).normalize()
-		l_r = l.reflect(n)
-
-		# ------------------
-		objectBetween = self.intersect(1, Ray(intersection, l), max_level=1)
-		if objectBetween:
-			intensity *= 1 / (light.origin - intersection).length()
-		# ------------------
-
-		diffMulti += l.scalar(n) * light.intensity
-		l_r_val = l_r.scalar(ray.direction.normalize())
-		specMulti += l_r_val * light.intensity
-
-		return object.mat.color_(intensity, diffMulti=diffMulti, specMulti=specMulti)
-
 	# ORIGINAL
-	def computeDirectLight_(self, hit):
+	def computeDirectLight(self, hit):
 		ray = hit[HitPointData._RAY]
 		object = hit[HitPointData._OBJ]
 		dist = hit[HitPointData._DIST]
@@ -95,33 +63,26 @@ class Picture(object):
 
 		light_origin = self.light.origin
 		light_intensity = self.light.intensity
-		intense = 1
 		intersection = ray.pointAt(dist)  # the point where the ray intersects the object #vector
 
 		# (S44)
 		l = (light_origin - intersection).normalize()
 
-		# ------------------
-		objectBetween = self.intersect(1, Ray(intersection, l), max_level=1)
-		if objectBetween:
-			intense /= 0.1
-		# ------------------
-
 		n = object.normalAt(intersection)
 		l_reflected = l.reflect(n)
 		d = ray.origin - intersection
 
-		phi = self._calcAngle_(n, l)
+		phi = n.calcAngle(l)
 		# angle between the normal of the intersection point and
 		# the light vector; used as the factor by which the
 		# diffusion color will be multiplied
 
-		theta = self._calcAngle_(d, l_reflected)
+		theta = d.calcAngle(l_reflected)
 		# angle between the normal of the intersection point and
 		# the light vector; used as the factor by which the
 		# diffusion color will be multiplied
 
-		return object.mat.color(diffMulti=phi, specMulti=theta * intense)
+		return object.mat.color(diffMulti=phi, specMulti=theta)
 
 	def computeReflectedRay(self, hit):
 		ray = hit[HitPointData._RAY]
@@ -171,8 +132,12 @@ class Picture(object):
 	def traceRay(self, level, ray):
 		# (S47)
 		hitPointData = self.intersect(level, ray, max_level=3)
-		if hitPointData: # if there is an intersection > shade
+		if hitPointData: # if there is an intersection (ray and object)
+			intersection = ray.pointAt(hitPointData[HitPointData._DIST])
+			l = self.light.origin - intersection
 			shade = self.shade(level, hitPointData)
+			if self.intersect(1, Ray(intersection, l)):
+				shade *= 1.6
 			return shade
 		return self._BG_COLOR
 

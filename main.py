@@ -1,6 +1,6 @@
 from gencg.hareg001.picture import *
 
-WIDTH = 400
+WIDTH = 300
 HEIGHT = 300
 
 if __name__ == '__main__':
