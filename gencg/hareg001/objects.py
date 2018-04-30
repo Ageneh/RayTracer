@@ -4,7 +4,7 @@ from numpy import *
 # objects
 
 # –––––––––––––––– - COLORS - –––––––––––––––– #
-class Color(object):
+class Color:
 	_VALDICT = {"r": 0, "g": 1, "b": 2}
 	_REPR = "Color(%d,%d,%d)"
 
@@ -62,7 +62,7 @@ yellow = Color(255, 255, 0)
 # –––––––––––––––– END COLORS –––––––––––––––– #
 
 
-class Material(object):
+class Material:
 
 	def __init__(self, ambient, ambientLvl, diffuse, diffuseLvl, spec, specLvl, surface=1):
 		self.ambient = ambient  # color
@@ -74,6 +74,30 @@ class Material(object):
 		self.surface = surface
 
 	def color(self, diffMulti=0, specMulti=0):
+		diffuse = self.diffuse * self.diffuseLvl * diffMulti
+		specular = self.spec * self.specLvl * specMulti
+
+		_ambient = self.ambient * self.ambientLvl
+
+		values = [diffuse, specular]
+		for c in range(len(values)):
+			for i in range(len( values[c].toRGB() )):
+				color_val = values[c].toRGB()[i]
+				if color_val < Color.MIN_VAL():
+					values[c] = black
+					break
+				elif color_val > Color.MAX_VAL():
+					values[c] = white
+					break
+
+		diffuse, specular = values[0], values[1]
+
+		_diffuse = diffuse * diffMulti * self.diffuseLvl
+		_specular = specular * specMulti * self.specLvl
+
+		return _ambient + _diffuse + _specular
+
+	def color______________(self, diffMulti=0, specMulti=0):
 		diffMulti = cos(diffMulti)
 		specMulti = cos(specMulti) ** self.surface
 
@@ -109,7 +133,7 @@ class Material(object):
 
 # –––––––––––––––– - –––––––––––––––– #
 
-class Vector(object):
+class Vector:
 	_REPR = "Vector(%f, %f, %f)"
 
 	def __init__(self, x, y, z):
@@ -194,10 +218,12 @@ class Vector(object):
 		return self._REPR % self.tuple()
 
 	def __truediv__(self, t):
-		return self.scale(1 / t)
+		if t <= 0:
+			print()
+		return self.scale(1/t)
 
 
-class GraphicsObject(object):
+class GraphicsObject:
 
 	def __init__(self, origin):
 		self.origin = origin
@@ -279,6 +305,7 @@ class Sphere(GraphicsObject):
 		return "Sphere({},{},{})".format(self.rad, repr(self.center), repr(self.mat))
 
 	def intersection(self, ray):
+		#(S37)
 		co = self.center - ray.origin  # co = c-o
 		v = co.scalar(ray.direction)
 
@@ -295,7 +322,7 @@ class Sphere(GraphicsObject):
 
 # –––––––––––––––– - –––––––––––––––– #
 
-class Ray(object):
+class Ray:
 	_REPR = "Ray({}, {})"
 
 	def __init__(self, origin, direction):
@@ -319,7 +346,7 @@ class Light(GraphicsObject):
 # self.origin, self.intensity = origin, intensity  # origin = vector
 
 
-class Camera(object):
+class Camera:
 
 	def __init__(self, origin, focus, up, fieldOfView):
 		self.origin = origin  # points
@@ -348,21 +375,27 @@ class Camera(object):
 
 # –––––––––––––––– - –––––––––––––––– #
 
-class HitPointData():
+class HitPointData:
 	_RAY = "ray"
 	_OBJ = "obj"
 	_DIST = "dist"
+	_SHADE = "shaded"
 
-	def __init__(self, ray=None, obj=None, dist=None):
+	def __init__(self, ray=None, obj=None, dist=None, shadeMulti=1.0):
 		self.data = {
-			"ray": ray,
-			"obj": obj,
-			"dist": dist
+			self._RAY: ray,
+			self._OBJ: obj,
+			self._DIST: dist,
+			self._SHADE: shadeMulti
 		}
 
 	def __getitem__(self, item):
 		if type(item) == str and item in self.data.keys():
 			return self.data[item]
+
+	def __setitem__(self, key, value):
+		if key in (self._RAY, self._DIST, self._OBJ, self._SHADE):
+			self.data[key] = value
 
 
 if __name__ == '__main__':

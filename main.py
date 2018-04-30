@@ -19,7 +19,7 @@ if __name__ == '__main__':
     )
 
     plane = Plane(
-            Vector(0, 55, 70),
+            Vector(0, -55, 70),
             Vector(0, 1, 0),
             Material(grey, 0.4, grey*0.3, 0.71, grey, 0.3)
     )
@@ -30,5 +30,5 @@ if __name__ == '__main__':
     objects = [sphere_top, sphere_left, sphere_right, plane]
 
     img = Picture(WIDTH, HEIGHT, camera,
-                  light, objects, reflection=0)
-    img.castRays()
+                  light, objects, reflection=1)
+    img.start()

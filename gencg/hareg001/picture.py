@@ -24,144 +24,105 @@ class Picture(object):
 
 		self.pixelW, self.pixelH = self.width / (self.resX - 1), self.height / (self.resY - 1)
 
-	def castRays(self):
+	def start(self):
 		_prop_str = "_".join([str("W" + str(self.resX)), str("H" + str(self.resY)), str("FOV" + str(self.camera.fov)), str("LIGHT" + str(self.light.origin))])
-
 		self.image = Image.new("RGB", (self.resX, self.resY))
-		
+
+		self.castRays()  # start raytracing
+
+		self.image.save( "/Users/HxA/PycharmProjects/RayTracer" + str(int(round(time.time() * 1000))) + "_" + _prop_str + ".jpg", "JPEG")
+		self.image.show()
+
+	# –––––––––––––––––––––––––––––––––––––––––––––
+
+	def castRays(self):
 		for x in range(self.resX):
 			for y in range(self.resY):
 				# for each pixel of the image ...
 				color = self._BG_COLOR
+				ray = self.calcRay(x, y)  # calculate a ray in the image
 
-				ray = self.calcRay(x, y) # calculate a ray in the image
-				maxDist = self.intersect(1, ray)
+				intersection = self.intersect(1, ray, 1)
+				if intersection:
+					color = self.traceRay(1, ray)  # follow ray and find color of pixel at its intersection
 
-				if maxDist:
-					color = self.traceRay(1, ray) # follow ray and find color of pixel at its intersection
-					color *= self.color(maxDist)
+				self.image.putpixel((x, y), color.toRGB())  # color the pixel in image
 
-				self.image.putpixel((x, y), color.toRGB()) # color the pixel in image
+	# get intersection data on whether the ray intersects an object or not
+	def intersect(self, level, ray, maxlevel=3): # depth := recursion depth
+		if level > maxlevel: return
 
-		self.image.save(
-			"/Users/HxA/PycharmProjects/RayTracer" + str(int(round(time.time() * 1000))) + "_" + _prop_str + ".jpg",
-			"JPEG", quality=90)
-		self.image.show()
+		maxDist = float('inf')
+		obj = None  # the intersected object
+
+		for object in self.objects:
+			hit = object.intersection(ray)
+
+			if hit and hit < maxDist:
+					maxDist, obj = hit, object
+
+		if obj:
+			return HitPointData(obj=obj, dist=maxDist, ray=ray)
+		return None
+
+	def traceRay(self, level, ray): # (S47)
+		colorAtIntersection = black
+		reflectionColor = black
+
+		hitPointData = self.intersect(level, ray)
+
+		if hitPointData:  #if the ray intersects an object
+			return self.shade(level, hitPointData)
+
+		return self._BG_COLOR
+
+	def shade(self, level, hit):  # (S47)
+		# shade = dot_product( light_vector, normal_vector )
+		#if ( shade < 0 )
+		# 	shade = 0
+		# point_color = object_color * ( ambient_coefficient +
+		# diffuse_coefficient * shade )
+
+		ray = hit[HitPointData._RAY]
+		dist = hit[HitPointData._DIST]
+		obj = hit[HitPointData._OBJ]
+
+		intersection = ray.pointAt(dist)
+		light = self.light.origin - intersection
+		shade = light.scalar(obj.normalAt(ray.pointAt(dist)))  # shade factor
+		hit[HitPointData._SHADE] = shade
+
+		directColor = self.computeDirectLight(hit)
+		reflectedRay = self.computeReflectedRay(hit)
+		reflectColor = self.traceRay(level+1, reflectedRay)
+
+		return directColor + reflectColor * self.reflection
+
+	def computeDirectLight(self, hit):
+		intersection = hit[HitPointData._RAY].pointAt(hit[HitPointData._DIST])
+		light = (self.light.origin - intersection).normalize()  # vector from intersection to light source
+		n = hit[HitPointData._OBJ].normalAt(intersection)
+		l_reflected = light.reflect(n)
+		d = hit[HitPointData._RAY].origin - intersection
+
+		diffMulti = light * n  # scalar
+		specMulti = l_reflected * (d * (-1))
+
+		return hit[HitPointData._OBJ].mat.color(diffMulti=diffMulti, specMulti= specMulti)
+
+	def computeReflectedRay(self, hit):
+		ray = hit[HitPointData._RAY]
+		dist = hit[HitPointData._DIST]
+		obj = hit[HitPointData._OBJ]
+
+		intersection = ray.pointAt(dist)
+		n = obj.normalAt(intersection)
+		d = ray.origin - intersection  # ray from intersection to camera
+
+		reflected = d.reflect(n)  # reflected ray
+		return Ray(intersection, reflected)
 
 	def calcRay(self, x, y):
 		xComp = self.camera.s.scale((x * self.pixelW - self.width / 2))  # scales width of each pixel
 		yComp = self.camera.u.scale((y * self.pixelH - self.height / 2))  # s# cales height of each pixel
 		return Ray(self.camera.origin, self.camera.f + xComp + yComp)
-
-	# ORIGINAL
-	def computeDirectLight(self, hit):
-		ray = hit[HitPointData._RAY]
-		object = hit[HitPointData._OBJ]
-		dist = hit[HitPointData._DIST]
-
-		# angle between two vectors: <v,w> / ||v||*||w||
-
-		light_origin = self.light.origin
-		light_intensity = self.light.intensity
-		intersection = ray.pointAt(dist)  # the point where the ray intersects the object #vector
-
-		# (S44)
-		l = (light_origin - intersection).normalize()
-
-		n = object.normalAt(intersection)
-		l_reflected = l.reflect(n)
-		d = ray.origin - intersection
-
-		phi = n.calcAngle(l)
-		# angle between the normal of the intersection point and
-		# the light vector; used as the factor by which the
-		# diffusion color will be multiplied
-
-		theta = d.calcAngle(l_reflected)
-		# angle between the normal of the intersection point and
-		# the light vector; used as the factor by which the
-		# diffusion color will be multiplied
-
-		return object.mat.color(diffMulti=phi, specMulti=theta)
-
-	def computeReflectedRay(self, hit):
-		ray = hit[HitPointData._RAY]
-		object = hit[HitPointData._OBJ]
-		dist = hit[HitPointData._DIST]
-
-		s = ray.pointAt(dist) # intersection
-		n = object.normalAt(s) # normal at intersection
-
-		return Ray(s, ray.direction.reflect(n).normalize()) # reflected ray
-
-	def color(self, hit):
-		ray = hit[HitPointData._RAY]
-		object = hit[HitPointData._OBJ]
-		dist = hit[HitPointData._DIST]
-
-		s = ray.pointAt(dist)
-		to_light = self.light.origin - s  # intersection to light source
-
-		objectBetween = self.intersect(1, Ray(s, to_light))
-		if objectBetween:
-			# if there is an object between, shadow
-			return 0.1
-		return 1
-
-	def intersect(self, level, ray, max_level=3):
-
-		if level > max_level: return None
-
-		maxDist = float('inf')
-		_obj = None
-
-		for obj in self.objects:
-			hitdist = obj.intersection(ray)
-			if hitdist:
-				# if the ray intersected an object ...
-				if 0 < hitdist < maxDist:
-					# continue until its closest point has been found
-					maxDist = hitdist
-					_obj = obj
-
-		# return HPD if there an intersection with an object
-		if _obj == None:
-			return None
-		return HitPointData(obj=_obj, ray=ray, dist=maxDist)
-
-	def traceRay(self, level, ray):
-		# (S47)
-		hitPointData = self.intersect(level, ray, max_level=3)
-		if hitPointData: # if there is an intersection (ray and object)
-			intersection = ray.pointAt(hitPointData[HitPointData._DIST])
-			l = self.light.origin - intersection
-			shade = self.shade(level, hitPointData)
-			if self.intersect(1, Ray(intersection, l)):
-				shade *= 1.6
-			return shade
-		return self._BG_COLOR
-
-	def shade(self, level, hit):
-		# (S47)
-
-		# ray = hit[HitPointData._RAY]
-		# object = hit[HitPointData._OBJ]
-		# dist = hit[HitPointData._DIST]
-		#
-		# s = ray.pointAt(dist) # intersection
-		# l = self.light.origin - s
-		# shade = 1
-		# if l.scalar(s.normalize()) < 0:
-		# 	shade = 0.2
-		# else: shade = 1
-
-		directC = self.computeDirectLight(hit) # the color where the direct light is illuminating # color
-
-		reflectedR = self.computeReflectedRay(hit) # compute reflection of ray # ray
-
-		reflectedC = self.traceRay(level+1, reflectedR) # color of reflection # color
-
-
-
-		s = directC + (reflectedC * self.reflection)
-		return s
