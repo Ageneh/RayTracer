@@ -39,6 +39,7 @@ class Picture(object):
 
 				if maxDist:
 					color = self.traceRay(1, ray) # follow ray and find color of pixel at its intersection
+					color *= self.color(maxDist)
 
 				self.image.putpixel((x, y), color.toRGB()) # color the pixel in image
 
@@ -56,10 +57,12 @@ class Picture(object):
 		"""Calculates the angle between two vectors."""
 		return acos((v * w) / ( v.length() * w.length() ))
 
-	def computeDirectLight_(self, hit):
+	def computeDirectLight(self, hit):
 		ray = hit[HitPointData._RAY]
 		object = hit[HitPointData._OBJ]
 		dist = hit[HitPointData._DIST]
+
+		intensity = self.light.intensity
 
 		diffMulti, specMulti = 0, 0
 
@@ -70,13 +73,20 @@ class Picture(object):
 		l = (light.origin - intersection).normalize()
 		l_r = l.reflect(n)
 
+		# ------------------
+		objectBetween = self.intersect(1, Ray(intersection, l), max_level=1)
+		if objectBetween:
+			intensity *= 1 / (light.origin - intersection).length()
+		# ------------------
+
 		diffMulti += l.scalar(n) * light.intensity
 		l_r_val = l_r.scalar(ray.direction.normalize())
 		specMulti += l_r_val * light.intensity
 
-		return object.mat.color(diffMulti=diffMulti, specMulti=specMulti)
+		return object.mat.color_(intensity, diffMulti=diffMulti, specMulti=specMulti)
 
-	def computeDirectLight(self, hit):
+	# ORIGINAL
+	def computeDirectLight_(self, hit):
 		ray = hit[HitPointData._RAY]
 		object = hit[HitPointData._OBJ]
 		dist = hit[HitPointData._DIST]
@@ -92,9 +102,9 @@ class Picture(object):
 		l = (light_origin - intersection).normalize()
 
 		# ------------------
-		objectBetween = self.intersect(1, Ray(intersection, l))
+		objectBetween = self.intersect(1, Ray(intersection, l), max_level=1)
 		if objectBetween:
-			intense *= 1.8
+			intense /= 0.1
 		# ------------------
 
 		n = object.normalAt(intersection)
@@ -111,7 +121,7 @@ class Picture(object):
 		# the light vector; used as the factor by which the
 		# diffusion color will be multiplied
 
-		return object.mat.color(diffMulti=phi * intense, specMulti=theta * intense)
+		return object.mat.color(diffMulti=phi, specMulti=theta * intense)
 
 	def computeReflectedRay(self, hit):
 		ray = hit[HitPointData._RAY]
@@ -134,7 +144,7 @@ class Picture(object):
 		objectBetween = self.intersect(1, Ray(s, to_light))
 		if objectBetween:
 			# if there is an object between, shadow
-			return 0
+			return 0.1
 		return 1
 
 	def intersect(self, level, ray, max_level=3):

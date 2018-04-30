@@ -25,7 +25,7 @@ if __name__ == '__main__':
     )
 
     camera = Camera(Vector(0, 0, 0), Vector(0, -20, 250), up, 120)
-    light = Light(Vector(100, -300, 150), 1)
+    light = Light(Vector(-100, -300, 150), 1)
 
     objects = [sphere_top, sphere_left, sphere_right, plane]
 

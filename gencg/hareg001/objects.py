@@ -61,7 +61,7 @@ class Material(object):
 		self.specLvl = specLvl  # coefficient
 		self.surface = surface
 
-	def color_(self, diffMulti=1, specMulti=1):
+	def color_(self, intensity, diffMulti=1, specMulti=1):
 		diffuse = self.diffuse * self.diffuseLvl * diffMulti
 		specular = self.spec * self.specLvl * specMulti
 
@@ -82,7 +82,7 @@ class Material(object):
 		diffuse = diffuse * self.diffuseLvl * diffMulti
 		specular = specular * self.specLvl * specMulti
 
-		return _ambient + diffuse + specular
+		return (_ambient + diffuse + specular) * intensity
 
 
 	def color(self, diffMulti=0, specMulti=0):
