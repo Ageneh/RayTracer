@@ -1,25 +1,22 @@
-from PIL import Image
 from numpy import *
-import time
 
 
 # objects
-
-# TODO: shading und dann farben!! @see: Picture.shade()
 
 
 class Color(object):
 	_VALDICT = {"r": 0, "g": 1, "b": 2}
 	_REPR = "Color(%d,%d,%d)"
 
-	def __init__(self, r, g, b):
+	def __init__(self, r, g, b, alpha=1.0):
 		self.values = (r, g, b)
+		self.alpha = alpha
 
-	def __repr__(self):
-		return self._REPR % tuple(self.values)
+	def __repr__(self): return self._REPR % tuple(self.values)
 
-	def toRGB(self):
-		return tuple(self.values)
+	def toRGB(self): return tuple(self.values)
+
+	def toRGBA(self): return self.values + (self.alpha,)
 
 	def __add__(self, other):
 		if type(other) == Color:
@@ -35,61 +32,98 @@ class Color(object):
 		if type(other) != Color:
 			return eval(self._REPR % tuple(map( lambda x: x*other, self )))
 
-	def __truediv__(self, other):
-		return eval(self.__mul__(1 / other))
+	def __truediv__(self, other): return eval(self.__mul__(1 / other))
 
 
-class Mater(object):
+# –––––––––––––––– - COLORS - –––––––––––––––– #
 
-	def __init__(self, ambient, ambientLvl, diffuse, diffuseLvl, spec, specLvl):
+white = Color(255, 255, 255)
+lightgrey = Color(219, 219, 219)
+grey = Color(128, 128, 128)
+darkgrey = Color(20, 20, 20)
+black = Color(0, 0, 0)
+red = Color(242, 7, 7)
+green = Color(5, 210, 25)
+blue = Color(5, 80, 210)
+yellow = Color(255, 255, 0)
+
+# –––––––––––––––– END COLORS –––––––––––––––– #
+
+
+class Material(object):
+
+	def __init__(self, ambient, ambientLvl, diffuse, diffuseLvl, spec, specLvl, surface=1):
 		self.ambient = ambient  # color
 		self.ambientLvl = ambientLvl  # coefficient
 		self.diffuse = diffuse  # color
 		self.diffuseLvl = diffuseLvl  # coefficient
 		self.spec = spec  # color
 		self.specLvl = specLvl  # coefficient
+		self.surface = surface
 
-	def color(self, diffMulti=1, specMulti=1):
-		diffMulti = cos(diffMulti)
-		pecMulti = cos(specMulti)
-
+	def color_(self, diffMulti=1, specMulti=1):
 		diffuse = self.diffuse * self.diffuseLvl * diffMulti
-		spec = self.spec * self.specLvl * specMulti
+		specular = self.spec * self.specLvl * specMulti
+
 		_ambient = self.ambient * self.ambientLvl
 
-		components = [diffuse, spec]
+		values = [diffuse, specular]
+		for c in range(len(values)):
+			for i in range(len(values[c].toRGB())):
+				if values[c].toRGB()[i] < 0:
+					values[c] = black
+					break
+				elif values[c].toRGB()[i] > 255:
+					values[c] = white
+					break
 
-		for c in components:
-			for val in c.toRGB():
-				if val < 0:
-					c = black
-					break
-				elif val > 255:
-					c = 255
-					break
+		diffuse, specular = values[0], values[1]
+
+		diffuse = diffuse * self.diffuseLvl * diffMulti
+		specular = specular * self.specLvl * specMulti
+
+		return _ambient + diffuse + specular
+
+
+	def color(self, diffMulti=0, specMulti=0):
+		diffMulti = cos(diffMulti)
+		specMulti = cos(specMulti)**self.surface
+
+		diffuse = self.diffuse * self.diffuseLvl * diffMulti
+		specular = self.spec * self.specLvl * specMulti
+
+		_ambient = self.ambient * self.ambientLvl
+
+		values = [diffuse, specular]
+		for c in range(len(values)):
+			_temp_color = []
+			for i in range(len(values[c].toRGB())):
+				color_val = values[c].toRGB()[i]
+				if color_val < 0:
+					#_temp_color.append(abs(color_val))
+					_temp_color.append(0)
+					#values[c] = black
+				#elif color_val > 255: _temp_color.append(255)
+					#values[c].toRGB()[i] = 255
+				else: _temp_color.append(color_val)
+			values[c] = Color(_temp_color[0], _temp_color[1], _temp_color[2])
+
+
+		diffuse, specular = values[0], values[1]
 
 		_diffuse = diffuse * diffMulti * self.diffuseLvl
-		_specular = spec * specMulti * self.specLvl
+		_specular = specular * specMulti * self.specLvl
 
-		return _ambient + _diffuse + _specular
+		return _ambient + diffuse + specular
 
 	def __repr__(self):
-		return "Material({},{},{},{},{},{},{})".format(
-				repr(self.color),
+		return "Material({},{},{},{},{},{})".format(
 				self.ambient, self.ambientLvl,
 				self.diffuse, self.diffuseLvl,
 				self.spec, self.specLvl)
 
 
-white = Color(255, 255, 255)
-grey = Color(128, 128, 128)
-lightgrey = Color(219, 219, 219)
-darkgrey = Color(20, 20, 20)
-black = Color(0, 0, 0)
-red = Color(255, 24, 70)
-green = Color(0, 255, 0)
-blue = Color(0, 0, 255)
-yellow = Color(255, 255, 0)
+# –––––––––––––––– - –––––––––––––––– #
 
 
 class Vector(object):
@@ -100,10 +134,15 @@ class Vector(object):
 		self.coordinates = [x, y, z]
 
 	def scalar(self, vector):
+		"""Calculates the scalar of two vectors."""
 		return sum(list(map(lambda x, y: x * y, self, vector)))
 
+	def scale(self, t):
+		"""Multiplies the vector by the factor t."""
+		return eval(self._REPR % tuple(map(lambda x: x * t, self.coordinates)))
+
 	def cross(self, vector):
-		"""Calculates the cross product of the vector self and another given vector vector."""
+		"""Calculates the cross product of the vector (self) and another given vector (vector)."""
 		vector1 = self.tuple()
 		vector2 = vector.tuple()
 
@@ -138,17 +177,14 @@ class Vector(object):
 		#return eval(self._REPR % tuple(map(lambda x: x / length, self.coordinates)))
 		return self / self.length()
 
-	def scale(self, t):
-		return eval(self._REPR % tuple(map(lambda x: x * t, self.coordinates)))
-
-	def reflect(self, relction_axis):
-		return self - 2 * self.scalar(relction_axis) * relction_axis
+	def reflect(self, reflection_axis):
+		return self - 2 * reflection_axis.scalar(self) * reflection_axis # (S48)
 
 	def __add__(self, other):
 		return eval(self._REPR % tuple(list(map(lambda x, y: x + y, self, other))))
 
 	def __sub__(self, other):
-		return eval(self._REPR % tuple(map(lambda x, y: x - y, self.coordinates, other)))
+		return eval(self._REPR % tuple(list(map(lambda x, y: x - y, self, other))))
 
 	def __mul__(self, t):
 		return self.scalar(t) if type(t) == Vector else self.scale(t)
@@ -160,9 +196,11 @@ class Vector(object):
 			return self.coordinates[item]
 
 	def __len__(self):
+		"""Returns the amount of components."""
 		return len(self.coordinates)
 
 	def __pow__(self, exp, modulo=None):
+		"""Calculates the """
 		return eval(self._REPR % tuple(map(lambda x: x ** exp, self.coordinates)))
 
 	def __repr__(self):
@@ -174,20 +212,32 @@ class Vector(object):
 
 class GraphicsObject(object):
 
+	def __init__(self, origin):
+		self.origin = origin
+
 	def intersection(self, ray): return
 
 	def normalAt(self, point): return
 
-	def colorAt(self, ray): return Color(255, 200, 100)
+	def colorAt(self, ray): return
 
 
 class Triangle(GraphicsObject):
 
 	def __init__(self, a, b, c, mat):
+		super().__init__(self.calcMidpoint((a, b, c)))  # saves the origin in super
 		self.a, self.b, self.c = a, b, c  # points a, b and c
 		self.ab = self.b - self.a  # vector from a to b
 		self.ac = self.c - self.a  # vector from a to c
-		self.mat = mat
+		self.mat = mat  # material
+
+	def calcMidpoint(self, points):
+		s = Vector(0, 0, 0)
+		for i in range(len(points)):
+			n = i+1
+			a = points[i] / n
+			s += a
+		return s
 
 	def normal(self):
 		return self.ab.cross(self.ac).normalize()
@@ -215,8 +265,9 @@ class Triangle(GraphicsObject):
 class Plane(GraphicsObject):
 
 	def __init__(self, point, normal, mat):
+		super().__init__(point)  # saves the origin in super
 		self.point, self.normal = point, normal.normalize()
-		self.mat = mat
+		self.mat = mat # material
 
 	def intersection(self, ray):
 		op_n = (ray.origin - self.point).scalar(self.normal)
@@ -233,8 +284,9 @@ class Plane(GraphicsObject):
 class Sphere(GraphicsObject):
 
 	def __init__(self, rad, center, mat):
+		super().__init__(center)  # saves the origin in super
 		self.rad, self.center = rad, center  # rad:=number; center:=point
-		self.mat = mat
+		self.mat = mat # material
 
 	def __repr__(self):
 		return "Sphere({},{},{})".format(self.rad, repr(self.center), repr(self.mat))
@@ -274,18 +326,23 @@ class Ray(object):
 		return self.origin + self.direction * other
 
 
-class Light(object):
+class Light(GraphicsObject):
 
-	def __init__(self, origin, intensity, color):
-		self.origin, self.intensity = origin, intensity  # origin = vector
-		self.color = color
+	def __init__(self, origin, intensity):
+		super().__init__(origin)
+		self.intensity = intensity  # origin = vector
+		#self.origin, self.intensity = origin, intensity  # origin = vector
 
 
 class Camera(object):
 
 	def __init__(self, origin, focus, up, fieldOfView):
 		self.origin = origin  # points
-		self.focus = focus  # the point to which the camera is aiming at
+
+		if type(focus) == Vector:
+			self.focus = focus  # the point to which the camera is aiming at
+		elif type(focus) in (Triangle, Sphere, Plane, Light):
+			self.focus = focus.origin  # focus on the center point of an object instead of a vector
 		self.up = up  # global up vector/direction of up
 		self.fov = fieldOfView  # field of view
 		self.alpha = self.fov / 2
@@ -309,6 +366,10 @@ class Camera(object):
 
 class HitPointData():
 
+	_RAY = "ray"
+	_OBJ = "obj"
+	_DIST = "dist"
+
 	def __init__(self, ray=None, obj=None, dist=None):
 		self.data = {
 			"ray":ray,
@@ -317,13 +378,18 @@ class HitPointData():
 		}
 
 	def __getitem__(self, item):
-		if type(item) == str:
+		if type(item) == str and item in self.data.keys():
 			return self.data[item]
-
 
 
 if __name__ == '__main__':
 	v = Vector(-343, 23, 63)
+
+	print(red.toRGB())
+	print(red.toRGBA())
+	m = Material(red, 0.4, red * 0.4, 0.6, grey, 0.3)
+	print(m)
+
 
 	print(v.normalize())
 	print(v / v.length())

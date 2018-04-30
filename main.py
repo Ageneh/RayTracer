@@ -7,18 +7,28 @@ if __name__ == '__main__':
     up = Vector(0, -1, 0)
     focus_point = Vector(0, 0, 250)
 
-    m = Mater(red, 0.8, red*0.4, 0.6, white, 0.8)
+    sphere_top = Sphere(30, Vector(0, 20, 250), Material(red, 0.4, red * 0.4, 0.6, grey, 0.1, 27))
+    sphere_left = Sphere(30, Vector(-40, -40, 250), Material(green, 0.3, grey, 0.8, grey, 0.2))
+    sphere_right = Sphere(30, Vector(40, -40, 250), Material(green, 0.3, grey, 0.8, grey, 0.2))
 
-    sphere = Sphere(30, Vector(0, 0, 100),
-                    m)
-    plane = Plane(
-            Vector(0, 60, 0),
-            Vector(0, -1, 0),
-            Mater(green, 0.4, blue, 0.71, white, 0.9)
+    triangle = Triangle(
+            Vector(-100, 200, 100),
+            Vector(0, 300, 200),
+            Vector(100, 200, 100),
+            Material(green, 1, green*0.3, 0.8, grey, 0.4)
     )
 
-    camera = Camera(Vector(0,20,-150),focus_point, up, 120)
-    light = Light(Vector(10, 100, 100), 0.8, yellow)
+    plane = Plane(
+            Vector(0, 55, 70),
+            Vector(0, 1, 0),
+            Material(grey, 0.4, grey*0.3, 0.71, grey, 0.3)
+    )
 
-    img = Picture(WIDTH, HEIGHT, camera, light, [sphere, plane], reflection=1)
+    camera = Camera(Vector(0, 0, 0), Vector(0, -20, 250), up, 120)
+    light = Light(Vector(100, -300, 150), 1)
+
+    objects = [sphere_top, sphere_left, sphere_right, plane]
+
+    img = Picture(WIDTH, HEIGHT, camera,
+                  light, objects, reflection=0)
     img.castRays()
