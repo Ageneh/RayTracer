@@ -136,32 +136,16 @@ class Picture(object):
 			intersection = ray.pointAt(hitPointData[HitPointData._DIST])
 			l = self.light.origin - intersection
 			shade = self.shade(level, hitPointData)
-			if self.intersect(1, Ray(intersection, l)):
-				shade *= 1.6
+
 			return shade
 		return self._BG_COLOR
 
 	def shade(self, level, hit):
 		# (S47)
 
-		# ray = hit[HitPointData._RAY]
-		# object = hit[HitPointData._OBJ]
-		# dist = hit[HitPointData._DIST]
-		#
-		# s = ray.pointAt(dist) # intersection
-		# l = self.light.origin - s
-		# shade = 1
-		# if l.scalar(s.normalize()) < 0:
-		# 	shade = 0.2
-		# else: shade = 1
-
 		directC = self.computeDirectLight(hit) # the color where the direct light is illuminating # color
-
 		reflectedR = self.computeReflectedRay(hit) # compute reflection of ray # ray
-
 		reflectedC = self.traceRay(level+1, reflectedR) # color of reflection # color
-
-
 
 		s = directC + (reflectedC * self.reflection)
 		return s
