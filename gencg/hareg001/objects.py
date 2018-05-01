@@ -77,50 +77,54 @@ class Material:
 		diffuse = self.diffuse * self.diffuseLvl * diffMulti
 		specular = self.spec * self.specLvl * specMulti
 
-		values = [diffuse, specular]
-		for c in range(len(values)):
-			for i in range(len( values[c].toRGB() )):
-				color_val = values[c].toRGB()[i]
-				if color_val < Color.MIN_VAL():
-					values[c] = black
-					break
-				elif color_val > Color.MAX_VAL():
-					values[c] = white
-					break
-		diffuse, specular = values[0], values[1]
+		_ambient = self.ambient * self.ambientLvl
+
+		if diffMulti > 0 and specMulti > 0:
+			values = [diffuse, specular]
+			for c in range(len(values)):
+				for i in range(len( values[c].toRGB() )):
+					color_val = values[c].toRGB()[i]
+					if color_val < Color.MIN_VAL():
+						values[c] = black
+						break
+					elif color_val > Color.MAX_VAL():
+						values[c] = white
+						break
+			diffuse, specular = values[0], values[1]
+		else:
+			return _ambient + diffuse + specular
+
 
 		_diffuse = diffuse * diffMulti * self.diffuseLvl
 		_specular = specular * specMulti * self.specLvl
-		_ambient = self.ambient * self.ambientLvl
 
+		print(_ambient)
 		return _ambient + _diffuse + _specular
 
-	def color______________(self, diffMulti=0, specMulti=0):
-		diffMulti = cos(diffMulti)
-		specMulti = cos(specMulti) ** self.surface
+	def color_(self, diffMulti=0, specMulti=0):
+		# cos nicht arccos
+		dM = diffMulti
+		sM = specMulti ** self.surface
 
 		diffuse = self.diffuse * self.diffuseLvl * diffMulti
 		specular = self.spec * self.specLvl * specMulti
 
-		_ambient = self.ambient * self.ambientLvl
-
 		values = [diffuse, specular]
 		for c in range(len(values)):
 			for i in range(len( values[c].toRGB() )):
 				color_val = values[c].toRGB()[i]
-				if color_val < Color.MIN_VAL():
-					values[c] = black
-					break
-				elif color_val > Color.MAX_VAL():
-					values[c] = white
-					break
-
+				if color_val < Color.MIN_VAL(): values[c] = black
+				elif color_val > Color.MAX_VAL(): values[c] = white
+				else: continue
+				break
 		diffuse, specular = values[0], values[1]
+		print(diffuse, )
 
+		_ambient = self.ambient * self.ambientLvl
 		_diffuse = diffuse * diffMulti * self.diffuseLvl
 		_specular = specular * specMulti * self.specLvl
 
-		return _ambient + _diffuse + _specular
+		return _ambient + diffuse + specular
 
 	def __repr__(self):
 		return "Material({},{},{},{},{},{})".format(
@@ -144,7 +148,7 @@ class Vector:
 
 	def scale(self, t):
 		"""Multiplies the vector by the factor t."""
-		return eval(self._REPR % tuple(map(lambda x: x * t, self.coordinates)))
+		return eval(self._REPR % tuple(map(lambda x: x * t, self)))
 
 	def cross(self, vector):
 		"""Calculates the cross product of the vector (self) and another given vector (vector)."""
@@ -186,7 +190,7 @@ class Vector:
 
 	def calcAngle(self, w):
 		"""Calculates the angle between two vectors."""
-		return arccos((self * w) / (self.length() * w.length()))
+		return float(arccos((self.scalar(w)) / (self.length() * w.length())))
 
 	def __add__(self, other):
 		return eval(self._REPR % tuple(list(map(lambda x, y: x + y, self, other))))
@@ -215,7 +219,9 @@ class Vector:
 		return self._REPR % self.tuple()
 
 	def __truediv__(self, t):
-		return self.scale(1/t)
+		#return self.scale(1/t)
+		if t == 0: return self
+		return eval(self._REPR % tuple(map(lambda x: x / t, self)))
 
 
 class GraphicsObject:

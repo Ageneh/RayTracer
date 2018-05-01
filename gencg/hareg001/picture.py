@@ -53,7 +53,7 @@ class Picture(object):
 		return self._BG_COLOR
 
 	# get intersection data on whether the ray intersects an object or not
-	def intersect(self, level, ray, maxlevel=3): # depth := recursion depth
+	def intersect(self, level, ray, maxlevel=5): # depth := recursion depth
 		if level > maxlevel: return
 
 		maxDist = float('inf')
@@ -79,13 +79,13 @@ class Picture(object):
 		dist = hit._DIST
 		obj = hit._OBJ
 
-		intersection = ray.pointAt(dist)
-		l = self.light.origin - intersection
-		shade = l.scalar(obj.normalAt(intersection))  # shade factor
-		if shade < 0: shade = 0
-		hit._SHADE = shade
+		# intersection = ray.pointAt(dist)
+		# l = (self.light.origin - intersection).normalize()
+		# shade = l.scalar(obj.normalAt(intersection))  # shade factor
+		# if shade < 0: shade = 0
+		# hit._SHADE = shade
 
-		directColor = self.computeDirectLight(hit)
+		directColor = self.computeDirectLight_angle(hit)
 		reflectedRay = self.computeReflectedRay(hit)
 		reflectColor = self.traceRay(level+1, reflectedRay)
 
@@ -96,18 +96,47 @@ class Picture(object):
 		ray = hit._RAY
 		dist = hit._DIST
 		obj = hit._OBJ
-		shade = hit._SHADE
+		shade = 1
 
 		intersection = ray.pointAt(dist)
 		l = (self.light.origin - intersection).normalize()  # vector from intersection to light source
-		n = obj.normalAt(intersection)
-		l_reflected = l.reflect(n)
-		d = ray.origin - intersection
+		n = obj.normalAt(intersection).normalize()
+		l_reflected = l.reflect(n).normalize()
+		d = (ray.origin - intersection).normalize()
 
-		diffMulti = l.scalar(n) * self.light.intensity  # scalar
-		specMulti = l_reflected.scalar(d * -1) * self.light.intensity
+		# check if object is shadowed
+
+		reflectedRay = Ray(intersection, l_reflected)
+		if self.intersect(1, reflectedRay):
+			shade *= 0.3
+
+		###
+
+		diffMulti = l.scalar(n) * shade
+		specMulti = l_reflected.scalar(d) * shade
 
 		return obj.mat.color(diffMulti=diffMulti, specMulti= specMulti)
+
+	def computeDirectLight_angle(self, hit):
+		# v • w / ||v|| * ||w|| = alpha
+
+		ray = hit._RAY
+		dist = hit._DIST
+		obj = hit._OBJ
+
+		light = self.light
+		intersection = ray.pointAt(dist)
+		l = (light.origin - intersection).normalize()
+		n = obj.normalAt(intersection).normalize()
+		to_d = (ray.origin - intersection).normalize()
+		reflected = l.reflect(n).normalize()
+		reflectedRay = Ray(intersection, reflected)
+
+		# check if point is facing light source
+		diff = n.scalar(l)
+		spec = reflected.scalar(to_d)
+		print(str(True if diff <= 0 else False), diff, "\t\t\t", str(True if spec <= 0 else False), spec)
+		return obj.mat.color_(diff, spec)
 
 	def computeReflectedRay(self, hit):
 		ray = hit._RAY
