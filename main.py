@@ -1,7 +1,7 @@
 from gencg.hareg001.picture import *
 
-WIDTH = 300
-HEIGHT = 300
+WIDTH = 200
+HEIGHT = 200
 
 if __name__ == '__main__':
     up = Vector(0, -1, 0)
@@ -24,7 +24,7 @@ if __name__ == '__main__':
             Material(grey, 0.4, grey*0.3, 0.71, grey, 0.3)
     )
 
-    camera = Camera(Vector(0, 0, 0), Vector(0, -20, 250), up, 120)
+    camera = Camera(Vector(0, 10, 0), Vector(0, -20, 250), up, 120)
     light = Light(Vector(-100, -300, 150), 1)
 
     objects = [sphere_top, sphere_left, sphere_right]

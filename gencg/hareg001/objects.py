@@ -40,7 +40,7 @@ class Color:
 
 	def __mul__(self, other):
 		# if type(other) != Color:
-		if type(other) in (int, float, float64):
+		if type(other) in (int, float, float64) or type(other) != Color:
 			other = float(other)
 			return eval(self._REPR % tuple(map(lambda x: x * other, self)))
 
@@ -148,8 +148,8 @@ class Vector:
 
 	def cross(self, vector):
 		"""Calculates the cross product of the vector (self) and another given vector (vector)."""
-		vector1 = self.tuple()
-		vector2 = vector.tuple()
+		v1 = self
+		v2 = vector
 
 		output = []
 
@@ -161,7 +161,7 @@ class Vector:
 						if i + j != n:
 							break
 
-					sum = (vector1[i] * vector2[i + j]) - (vector1[i + j] * vector2[i])
+					sum = (v1[i] * v2[i + j]) - (v1[i + j] * v2[i])
 					output.append(sum)
 					break
 
@@ -177,7 +177,6 @@ class Vector:
 
 	def normalize(self):
 		"""Returns a normalized vector by dividing each component of the vector."""
-
 		# length = self.length() # length of the vector;
 		# return eval(self._REPR % tuple(map(lambda x: x / length, self.coordinates)))
 		return self / self.length()
@@ -193,7 +192,7 @@ class Vector:
 		return eval(self._REPR % tuple(list(map(lambda x, y: x + y, self, other))))
 
 	def __sub__(self, other):
-		return eval(self._REPR % tuple(list(map(lambda x, y: x - y, self, other))))
+		return self + (other * -1)
 
 	def __mul__(self, t):
 		return self.scalar(t) if type(t) == Vector else self.scale(t)
@@ -208,16 +207,14 @@ class Vector:
 		"""Returns the amount of components."""
 		return len(self.coordinates)
 
-	def __pow__(self, exp, modulo=None):
+	def __pow__(self, e, modulo=None):
 		"""Calculates the """
-		return eval(self._REPR % tuple(map(lambda x: x ** exp, self.coordinates)))
+		return eval(self._REPR % tuple(map(lambda x: x ** e, self.coordinates)))
 
 	def __repr__(self):
 		return self._REPR % self.tuple()
 
 	def __truediv__(self, t):
-		if t <= 0:
-			print()
 		return self.scale(1/t)
 
 
@@ -374,26 +371,12 @@ class Camera:
 # –––––––––––––––– - –––––––––––––––– #
 
 class HitPointData:
-	_RAY = "ray"
-	_OBJ = "obj"
-	_DIST = "dist"
-	_SHADE = "shaded"
 
 	def __init__(self, ray=None, obj=None, dist=None, shadeMulti=1.0):
-		self.data = {
-			self._RAY: ray,
-			self._OBJ: obj,
-			self._DIST: dist,
-			self._SHADE: shadeMulti
-		}
-
-	def __getitem__(self, item):
-		if type(item) == str and item in self.data.keys():
-			return self.data[item]
-
-	def __setitem__(self, key, value):
-		if key in (self._RAY, self._DIST, self._OBJ, self._SHADE):
-			self.data[key] = value
+		self._RAY = ray
+		self._OBJ = obj
+		self._DIST = dist
+		self._SHADE = shadeMulti
 
 
 if __name__ == '__main__':
