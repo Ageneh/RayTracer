@@ -4,7 +4,7 @@ from PIL import Image
 from gencg.hareg001.objects import *
 import time
 
-class Picture(object):
+class Picture:
 
 	_BG_COLOR = Color(0, 0, 0)
 
@@ -58,10 +58,14 @@ class Picture(object):
 		return self._BG_COLOR
 
 	# given
-	def shade(self, level, hit):
+	def shade(self, level, hit):  # (S47)
 		"""Uses the data from the hit and calculates a color."""
-		# (S47)
-		directC = self.computeDirectLight(hit) # the color where the direct light is illuminating # color
+
+		shaded = self.computeShadedColor(hit)
+		if shaded != None:  # check if there is an object between p and light.origin
+			directC = shaded
+		else:
+			directC = self.computeDirectLight(hit) # the color where the direct light is illuminating # color
 		reflectedR = self.computeReflectedRay(hit) # compute reflection of ray # ray
 		reflectedC = self.traceRay(level+1, reflectedR) # color of reflection # color
 		return directC + (reflectedC * self.reflection)
@@ -69,32 +73,61 @@ class Picture(object):
 	################################### # ################################### # ###################################
 
 	def computeDirectLight(self, hit):
+		finalColor = Color(0, 0, 0)
 		# variables
 		ray = hit[HitPointData._RAY]
 		object = hit[HitPointData._OBJ]
 		dist = hit[HitPointData._DIST]
 
-		shadeMulti = -1
-		diffMulti, specMulti = 1, 1
-
 		p = ray.pointAt(dist)  # intersection
-		n = object.normalAt(p)  # normal at point p
+		n = object.normalAt(p).normalize()  # normal at point p
 		l = (self.light.origin - p).normalize()  # vector from p to light source
 		lr = l.reflect(n).normalize()  # reflected l vector
 		l_ray = Ray(p, l)  # ray from p to light
 		d_ = (ray.origin - p).normalize()  # vector from p to camera origin
 
+		###########
 
-		# check if light hits directly or not
+		finalColor += object.mat.color * object.mat.ambientLvl
+
 		diffMulti = n.scalar(l)
 		specMulti = lr.scalar(d_)
-		shaded = self.intersect(1, l_ray, 3)
-		if shaded and dist < shaded[HitPointData._DIST]:  # some other object is between current object and light
-			shadeMulti = 0.9
-			diffMulti *= shadeMulti
-			specMulti *= shadeMulti
 
-		return object.mat.color(shadeMulti, diffMulti, specMulti)  # calculated mat
+		diffuse = object.mat.color * object.mat.diffuseLvl * diffMulti
+		if diffuse[0] < 0 or diffuse[1] < 0 or diffuse[2] < 0: diffuse = black
+		elif diffuse[0] > 255 or diffuse[1] > 255 or diffuse[2] > 255: diffuse = white
+
+		specular = object.mat.color * object.mat.specLvl * specMulti
+		if specular[0] < 0 or specular[1] < 0 or specular[2] < 0: specular = black
+		elif specular[0] > 255 or specular[1] > 255 or specular[2] > 255: specular = white
+
+		finalColor += diffuse * object.mat.diffuseLvl * diffMulti
+		finalColor += specular * object.mat.specLvl * specMulti
+
+		if type(object.mat) == Texture_Checkerboard:
+			return object.mat.color(p, diffMulti, specMulti)
+
+		return finalColor
+
+	def computeShadedColor(self, hit):
+		ray = hit[HitPointData._RAY]
+		object = hit[HitPointData._OBJ]
+		dist = hit[HitPointData._DIST]
+
+		# ################## #
+		p = ray.pointAt(dist)  # intersection
+		n = object.normalAt(p).normalize()  # normal at point p
+		l = (self.light.origin - p).normalize()  # vector from p to light source
+		l_ray = Ray(p, l)  # ray from p to light
+		# ################## #
+
+		for obj in self.objects:
+			hitdist = obj.intersection(l_ray)
+			if hitdist:
+				# if the ray intersected an object ...
+				if 0.01 < hitdist:
+					return object.mat.color * object.mat.ambientLvl * n.scalar(l)
+		return None
 
 	# DONE
 	def computeReflectedRay(self, hit):
@@ -121,7 +154,7 @@ class Picture(object):
 			hitdist = obj.intersection(ray)
 			if hitdist:
 				# if the ray intersected an object ...
-				if 0 < hitdist < maxDist:
+				if 0.01 < hitdist < maxDist:
 					# continue until its closest point has been found
 					maxDist = hitdist
 					_obj = obj

@@ -64,12 +64,10 @@ yellow = Color(255, 255, 0)
 
 class Material(object):
 
-	def __init__(self, ambient, ambientLvl, diffuse, diffuseLvl, spec, specLvl, surface=1):
-		self.ambient = ambient  # color
+	def __init__(self, color, ambientLvl, diffuseLvl, specLvl, surface=1):
+		self.color = color  # color
 		self.ambientLvl = ambientLvl  # coefficient
-		self.diffuse = diffuse  # color
 		self.diffuseLvl = diffuseLvl  # coefficient
-		self.spec = spec  # color
 		self.specLvl = specLvl  # coefficient
 		self.surface = surface
 
@@ -97,13 +95,12 @@ class Material(object):
 
 		return _ambient + _diffuse + _specular
 
-	def color(self, ambiMulti=1, diffMulti=0, specMulti=0):
-		aM = ambiMulti
+	def color(self, diffMulti=0, specMulti=0):
 		dM = diffMulti
 		sM = specMulti ** self.surface
 
-		diffuse = self.diffuse * self.diffuseLvl * dM
-		specular = self.spec * self.specLvl * sM
+		diffuse = self.color * self.diffuseLvl * dM
+		specular = self.color * self.specLvl * sM
 		colors = [diffuse, specular]
 
 		for color in range(len(colors)):
@@ -115,7 +112,7 @@ class Material(object):
 				break
 		diffuse, specular = colors[0], colors[1]
 
-		ambient = self.ambient * self.ambientLvl * aM
+		ambient = self.color * self.ambientLvl
 
 		return ambient + diffuse + specular
 
@@ -125,6 +122,41 @@ class Material(object):
 				self.diffuse, self.diffuseLvl,
 				self.spec, self.specLvl)
 
+class Texture_Checkerboard(Material):
+
+
+	def __init__(self, ambientLvl, diffuseLvl, specularLvl, color1=black, color2=white, tilesize=5):
+		super().__init__(black, ambientLvl, white, diffuseLvl, specularLvl)
+		self.colors = (color1, color2)
+		self.tileSize = tilesize
+
+		return
+
+	def color(self, point, diffMulti, specMulti):
+		dM = diffMulti
+		sM = specMulti ** self.surface
+
+		if (int(abs(point["x"]) + 0.5) + int(abs(point["y"]) + 0.5) + int(abs(point["z"]) + 0.5)) % 2:
+			diffuse = self.colors[1] * self.diffuseLvl * dM
+		else:
+			diffuse = self.colors[0] * self.diffuseLvl
+
+		specular = self.spec * sM * self.specLvl
+
+		colors = [diffuse, specular]
+
+		for color in range(len(colors)):
+			for i in range(len(colors[color].toRGB())):
+				val = colors[color].toRGB()[i]
+				if Color.MIN_VAL() <= val <= Color.MAX_VAL(): continue
+				if val < Color.MIN_VAL(): colors[color] = black
+				elif val > Color.MAX_VAL(): colors[color] = white
+				break
+		diffuse, specular = colors[0], colors[1]
+
+		ambient = self.ambient * self.ambientLvl
+
+		return ambient + diffuse + specular
 
 
 # –––––––––––––––– - –––––––––––––––– #
@@ -199,6 +231,10 @@ class Vector(object):
 	def __getitem__(self, item):
 		if type(item) == int:
 			return self.coordinates[item]
+		elif type(item) == str:
+			if item.lower() == "x": return self.coordinates[0]
+			elif item.lower() == "y": return self.coordinates[1]
+			elif item.lower() == "z": return self.coordinates[2]
 		elif type(item) == slice:
 			return self.coordinates[item]
 
@@ -299,8 +335,6 @@ class Sphere(GraphicsObject):
 		return "Sphere({},{},{})".format(self.rad, repr(self.center), repr(self.mat))
 
 	def intersection(self, ray):
-		if type(ray) != Ray:
-			print()
 		co = self.center - ray.origin  # co = c-o
 		v = co.scalar(ray.direction)
 
