@@ -71,50 +71,6 @@ class Material(object):
 		self.specLvl = specLvl  # coefficient
 		self.surface = surface
 
-	def color1(self, diffMulti=0, specMulti=0):
-		dM = diffMulti
-		sM = specMulti ** self.surface
-
-		diffuse = self.diffuse * self.diffuseLvl * dM
-		specular = self.spec * self.specLvl * sM
-
-		_ambient = self.ambient * self.ambientLvl
-
-		if diffuse[0] < Color.MIN_VAL() or diffuse[1] < Color.MIN_VAL() or diffuse[1] < Color.MIN_VAL():
-			diffuse = black
-		elif diffuse[0] > Color.MIN_VAL() or diffuse[1] > Color.MIN_VAL() or diffuse[1] > Color.MIN_VAL():
-			diffuse = white
-
-		if specular[0] < Color.MIN_VAL() or specular[1] < Color.MIN_VAL() or specular[1] < Color.MIN_VAL():
-			diffuse = black
-		elif specular[0] > Color.MIN_VAL() or specular[1] > Color.MIN_VAL() or specular[1] > Color.MIN_VAL():
-			diffuse = white
-
-		_diffuse = diffuse * dM * self.diffuseLvl
-		_specular = specular * sM * self.specLvl
-
-		return _ambient + _diffuse + _specular
-
-	def color(self, diffMulti=0, specMulti=0):
-		dM = diffMulti
-		sM = specMulti ** self.surface
-
-		diffuse = self.color * self.diffuseLvl * dM
-		specular = self.color * self.specLvl * sM
-		colors = [diffuse, specular]
-
-		for color in range(len(colors)):
-			for i in range(len(colors[color].toRGB())):
-				val = colors[color].toRGB()[i]
-				if Color.MIN_VAL() <= val <= Color.MAX_VAL(): continue
-				if val < Color.MIN_VAL(): colors[color] = black
-				elif val > Color.MAX_VAL(): colors[color] = white
-				break
-		diffuse, specular = colors[0], colors[1]
-
-		ambient = self.color * self.ambientLvl
-
-		return ambient + diffuse + specular
 
 	def __repr__(self):
 		return "Material({},{},{},{},{},{})".format(
@@ -404,33 +360,9 @@ class Camera(object):
 
 # –––––––––––––––– - –––––––––––––––– #
 
-class HitPointData():
-	_RAY = "ray"
-	_OBJ = "obj"
-	_DIST = "dist"
+class HitPointData:
 
 	def __init__(self, ray=None, obj=None, dist=None):
-		self.data = {
-			"ray": ray,
-			"obj": obj,
-			"dist": dist
-		}
-
-	def __getitem__(self, item):
-		if type(item) == str and item in self.data.keys():
-			return self.data[item]
-
-
-if __name__ == '__main__':
-	v = Vector(-343, 23, 63)
-
-	print(red.toRGB())
-	print(red.toRGBA())
-	m = Material(red, 0.4, red * 0.4, 0.6, grey, 0.3)
-	print(m)
-
-	print(v.normalize())
-	print(v / v.length())
-
-
-#
+		self._RAY = ray
+		self._OBJ = obj
+		self._DIST = dist

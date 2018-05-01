@@ -33,7 +33,7 @@ class Picture:
 			for y in range(self.resY):
 				# for each pixel of the image ...
 				ray = self.calcRay(x, y) # calculate a ray in the image
-				color = self.traceRay(1, ray) # follow ray and find color of pixel at its intersection
+				color = self.traceRay(0, ray) # follow ray and find color of pixel at its intersection
 				self.image.putpixel((x, y), color.toRGB()) # color the pixel in image
 
 		self.image.save(
@@ -73,11 +73,11 @@ class Picture:
 	################################### # ################################### # ###################################
 
 	def computeDirectLight(self, hit):
-		finalColor = Color(0, 0, 0)
+		lightColor = white
 		# variables
-		ray = hit[HitPointData._RAY]
-		object = hit[HitPointData._OBJ]
-		dist = hit[HitPointData._DIST]
+		ray = hit._RAY
+		object = hit._OBJ
+		dist = hit._DIST
 
 		p = ray.pointAt(dist)  # intersection
 		n = object.normalAt(p).normalize()  # normal at point p
@@ -86,59 +86,82 @@ class Picture:
 		l_ray = Ray(p, l)  # ray from p to light
 		d_ = (ray.origin - p).normalize()  # vector from p to camera origin
 
+		material = object.mat
+
 		###########
 
-		finalColor += object.mat.color * object.mat.ambientLvl
+		phi = l.scalar(n)
+		theta = lr.scalar(d_)
 
-		diffMulti = n.scalar(l)
-		specMulti = lr.scalar(d_)
+		# ambient
+		ambient = material.color * material.ambientLvl
+		# diffuse
+		diffuse = lightColor * material.diffuseLvl * phi
+		# specular
+		specular = lightColor * material.specLvl * (theta ** material.surface)
 
-		diffuse = object.mat.color * object.mat.diffuseLvl * diffMulti
-		if diffuse[0] < 0 or diffuse[1] < 0 or diffuse[2] < 0: diffuse = black
-		elif diffuse[0] > 255 or diffuse[1] > 255 or diffuse[2] > 255: diffuse = white
+		vals = [diffuse, specular]
+		for k in range(len(vals)):
+			for i in range(len(vals[k].toRGB())):
+				val = vals[k].toRGB()[i]
+				if 0 < val < 255: continue
+				if val < 0: vals[k] = black
+				elif val > 255: vals[k] = white
+				break
+		diffuse, specular = vals[0], vals[1]
 
-		specular = object.mat.color * object.mat.specLvl * specMulti
-		if specular[0] < 0 or specular[1] < 0 or specular[2] < 0: specular = black
-		elif specular[0] > 255 or specular[1] > 255 or specular[2] > 255: specular = white
+		return ambient + diffuse + specular
 
-		finalColor += diffuse * object.mat.diffuseLvl * diffMulti
-		finalColor += specular * object.mat.specLvl * specMulti
-
-		if type(object.mat) == Texture_Checkerboard:
-			return object.mat.color(p, diffMulti, specMulti)
-
-		return finalColor
+		# ###########
+		#
+		# finalColor += object.mat.color * object.mat.ambientLvl
+		#
+		# diffMulti = n.scalar(l)
+		# specMulti = lr.scalar(d_)
+		#
+		# diffuse = object.mat.color * object.mat.diffuseLvl * diffMulti
+		# if diffuse[0] < 0 or diffuse[1] < 0 or diffuse[2] < 0: diffuse = black
+		# elif diffuse[0] > 255 or diffuse[1] > 255 or diffuse[2] > 255: diffuse = white
+		#
+		# specular = object.mat.color * object.mat.specLvl * specMulti
+		# if specular[0] < 0 or specular[1] < 0 or specular[2] < 0: specular = black
+		# elif specular[0] > 255 or specular[1] > 255 or specular[2] > 255: specular = white
+		#
+		# finalColor += diffuse * object.mat.diffuseLvl * diffMulti
+		# finalColor += specular * object.mat.specLvl * specMulti
+		#
+		# if type(object.mat) == Texture_Checkerboard:
+		# 	return object.mat.color(p, diffMulti, specMulti)
+		#
+		# return finalColor
 
 	def computeShadedColor(self, hit):
-		ray = hit[HitPointData._RAY]
-		object = hit[HitPointData._OBJ]
-		dist = hit[HitPointData._DIST]
+		ray = hit._RAY
+		object = hit._OBJ
+		dist = hit._DIST
 
 		# ################## #
 		p = ray.pointAt(dist)  # intersection
-		n = object.normalAt(p).normalize()  # normal at point p
-		l = (self.light.origin - p).normalize()  # vector from p to light source
+		l = (self.light.origin - p)  # vector from p to light source
 		l_ray = Ray(p, l)  # ray from p to light
 		# ################## #
 
 		for obj in self.objects:
 			hitdist = obj.intersection(l_ray)
-			if hitdist:
-				# if the ray intersected an object ...
-				if 0.01 < hitdist:
-					return object.mat.color * object.mat.ambientLvl * n.scalar(l)
+			if hitdist and 0.001 < hitdist < l.length():
+				return object.mat.color * 0.2 #* object.mat.ambientLvl
 		return None
 
 	# DONE
 	def computeReflectedRay(self, hit):
 		"""Returns a reflected ray."""
-		ray = hit[HitPointData._RAY]
-		object = hit[HitPointData._OBJ]
-		dist = hit[HitPointData._DIST]
+		ray = hit._RAY
+		object = hit._OBJ
+		dist = hit._DIST
 
 		p = ray.pointAt(dist)  # intersection
-		n = object.normalAt(p)  # normal at point p
-		reflected = ray.direction.normalize().reflect(n).normalize()
+		n = object.normalAt(p).normalize()  # normal at point p
+		reflected = (ray.origin - p).reflect(n)
 
 		r = Ray(p, reflected)
 
@@ -154,7 +177,7 @@ class Picture:
 			hitdist = obj.intersection(ray)
 			if hitdist:
 				# if the ray intersected an object ...
-				if 0.01 < hitdist < maxDist:
+				if 0.001 < hitdist < maxDist:
 					# continue until its closest point has been found
 					maxDist = hitdist
 					_obj = obj
