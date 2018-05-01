@@ -77,8 +77,6 @@ class Material:
 		diffuse = self.diffuse * self.diffuseLvl * diffMulti
 		specular = self.spec * self.specLvl * specMulti
 
-		_ambient = self.ambient * self.ambientLvl
-
 		values = [diffuse, specular]
 		for c in range(len(values)):
 			for i in range(len( values[c].toRGB() )):
@@ -89,11 +87,11 @@ class Material:
 				elif color_val > Color.MAX_VAL():
 					values[c] = white
 					break
-
 		diffuse, specular = values[0], values[1]
 
 		_diffuse = diffuse * diffMulti * self.diffuseLvl
 		_specular = specular * specMulti * self.specLvl
+		_ambient = self.ambient * self.ambientLvl
 
 		return _ambient + _diffuse + _specular
 

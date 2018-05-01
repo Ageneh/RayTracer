@@ -59,7 +59,7 @@ class Picture(object):
 			hit = object.intersection(ray)
 
 			if hit and hit < maxDist:
-					maxDist, obj = hit, object
+				maxDist, obj = hit, object
 
 		if obj:
 			return HitPointData(obj=obj, dist=maxDist, ray=ray)
@@ -90,6 +90,7 @@ class Picture(object):
 		intersection = ray.pointAt(dist)
 		light = self.light.origin - intersection
 		shade = light.scalar(obj.normalAt(ray.pointAt(dist)))  # shade factor
+		if shade < 0: shade = 0
 		hit[HitPointData._SHADE] = shade
 
 		directColor = self.computeDirectLight(hit)
@@ -99,16 +100,22 @@ class Picture(object):
 		return directColor + reflectColor * self.reflection
 
 	def computeDirectLight(self, hit):
-		intersection = hit[HitPointData._RAY].pointAt(hit[HitPointData._DIST])
+		ray = hit[HitPointData._RAY]
+		dist = hit[HitPointData._DIST]
+		obj = hit[HitPointData._OBJ]
+		shade = hit[HitPointData._SHADE]
+
+		intersection = ray.pointAt(dist)
+
 		light = (self.light.origin - intersection).normalize()  # vector from intersection to light source
-		n = hit[HitPointData._OBJ].normalAt(intersection)
+		n = obj.normalAt(intersection)
 		l_reflected = light.reflect(n)
-		d = hit[HitPointData._RAY].origin - intersection
+		d = ray.origin - intersection
 
-		diffMulti = light * n  # scalar
-		specMulti = l_reflected * (d * (-1))
+		diffMulti = light.scalar(n)  # scalar
+		specMulti = l_reflected.scalar(ray.direction)
 
-		return hit[HitPointData._OBJ].mat.color(diffMulti=diffMulti, specMulti= specMulti)
+		return obj.mat.color(diffMulti=diffMulti, specMulti= specMulti)
 
 	def computeReflectedRay(self, hit):
 		ray = hit[HitPointData._RAY]
@@ -116,13 +123,14 @@ class Picture(object):
 		obj = hit[HitPointData._OBJ]
 
 		intersection = ray.pointAt(dist)
-		n = obj.normalAt(intersection)
-		d = ray.origin - intersection  # ray from intersection to camera
+		if intersection == obj.intersection(ray):
+			n = obj.normalAt(intersection)
+			d = (ray.origin - intersection)  # ray from intersection to camera
 
-		reflected = d.reflect(n)  # reflected ray
-		return Ray(intersection, reflected)
+			reflected = ray.direction.reflect(n)  # reflected ray
+		return Ray(intersection, reflected.normalize())
 
 	def calcRay(self, x, y):
-		xComp = self.camera.s.scale((x * self.pixelW - self.width / 2))  # scales width of each pixel
-		yComp = self.camera.u.scale((y * self.pixelH - self.height / 2))  # s# cales height of each pixel
+		xComp = self.camera.s.scale((x * self.pixelW) - (self.width / 2))  # scales width of each pixel
+		yComp = self.camera.u.scale((y * self.pixelH) - (self.height / 2))  # s# cales height of each pixel
 		return Ray(self.camera.origin, self.camera.f + xComp + yComp)
