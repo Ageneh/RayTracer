@@ -8,7 +8,7 @@ if __name__ == '__main__':
     focus_point = Vector(0, 0, 250)
 
     sphere_top = Sphere(30, Vector(0, 20, 250), Material(red, 0.4, red * 0.4, 0.6, grey, 0.1, 27))
-    sphere_left = Sphere(30, Vector(-40, -40, 250), Material(green, 0.3, grey, 0.8, grey, 0.2))
+    sphere_left = Sphere(30, Vector(-40, -40, 250), Material(green, 0.7, green, 0.8, grey, 0.2))
     sphere_right = Sphere(30, Vector(40, -40, 250), Material(green, 0.3, grey, 0.8, grey, 0.2))
 
     triangle = Triangle(
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     )
 
     camera = Camera(Vector(0, 0, 0), Vector(0, -20, 250), up, 120)
-    light = Light(Vector(-100, -300, 150), 1)
+    light = Light(Vector(-100, -100, 150), 1)
 
     objects = [sphere_top, sphere_left, sphere_right, plane]
 

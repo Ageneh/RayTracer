@@ -73,7 +73,7 @@ class Material(object):
 		self.specLvl = specLvl  # coefficient
 		self.surface = surface
 
-	def color(self, diffMulti=0, specMulti=0):
+	def color1(self, diffMulti=0, specMulti=0):
 		dM = diffMulti
 		sM = specMulti ** self.surface
 
@@ -97,11 +97,34 @@ class Material(object):
 
 		return _ambient + _diffuse + _specular
 
+	def color(self, ambiMulti=1, diffMulti=0, specMulti=0):
+		aM = ambiMulti
+		dM = diffMulti
+		sM = specMulti ** self.surface
+
+		diffuse = self.diffuse * self.diffuseLvl * dM
+		specular = self.spec * self.specLvl * sM
+		colors = [diffuse, specular]
+
+		for color in range(len(colors)):
+			for i in range(len(colors[color].toRGB())):
+				val = colors[color].toRGB()[i]
+				if Color.MIN_VAL() <= val <= Color.MAX_VAL(): continue
+				if val < Color.MIN_VAL(): colors[color] = black
+				elif val > Color.MAX_VAL(): colors[color] = white
+				break
+		diffuse, specular = colors[0], colors[1]
+
+		ambient = self.ambient * self.ambientLvl * aM
+
+		return ambient + diffuse + specular
+
 	def __repr__(self):
 		return "Material({},{},{},{},{},{})".format(
 				self.ambient, self.ambientLvl,
 				self.diffuse, self.diffuseLvl,
 				self.spec, self.specLvl)
+
 
 
 # –––––––––––––––– - –––––––––––––––– #
@@ -276,6 +299,8 @@ class Sphere(GraphicsObject):
 		return "Sphere({},{},{})".format(self.rad, repr(self.center), repr(self.mat))
 
 	def intersection(self, ray):
+		if type(ray) != Ray:
+			print()
 		co = self.center - ray.origin  # co = c-o
 		v = co.scalar(ray.direction)
 
