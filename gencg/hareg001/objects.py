@@ -74,29 +74,26 @@ class Material(object):
 		self.surface = surface
 
 	def color(self, diffMulti=0, specMulti=0):
-		diffMulti = cos(diffMulti)
-		specMulti = cos(specMulti) ** self.surface
+		dM = diffMulti
+		sM = specMulti ** self.surface
 
-		diffuse = self.diffuse * self.diffuseLvl * diffMulti
-		specular = self.spec * self.specLvl * specMulti
+		diffuse = self.diffuse * self.diffuseLvl * dM
+		specular = self.spec * self.specLvl * sM
 
 		_ambient = self.ambient * self.ambientLvl
 
-		values = [diffuse, specular]
-		for c in range(len(values)):
-			for i in range(len( values[c].toRGB() )):
-				color_val = values[c].toRGB()[i]
-				if color_val < Color.MIN_VAL():
-					values[c] = black
-					break
-				elif color_val > Color.MAX_VAL():
-					values[c] = white
-					break
+		if diffuse[0] < Color.MIN_VAL() or diffuse[1] < Color.MIN_VAL() or diffuse[1] < Color.MIN_VAL():
+			diffuse = black
+		elif diffuse[0] > Color.MIN_VAL() or diffuse[1] > Color.MIN_VAL() or diffuse[1] > Color.MIN_VAL():
+			diffuse = white
 
-		diffuse, specular = values[0], values[1]
+		if specular[0] < Color.MIN_VAL() or specular[1] < Color.MIN_VAL() or specular[1] < Color.MIN_VAL():
+			diffuse = black
+		elif specular[0] > Color.MIN_VAL() or specular[1] > Color.MIN_VAL() or specular[1] > Color.MIN_VAL():
+			diffuse = white
 
-		_diffuse = diffuse * diffMulti * self.diffuseLvl
-		_specular = specular * specMulti * self.specLvl
+		_diffuse = diffuse * dM * self.diffuseLvl
+		_specular = specular * sM * self.specLvl
 
 		return _ambient + _diffuse + _specular
 
@@ -165,7 +162,7 @@ class Vector(object):
 
 	def calcAngle(self, w):
 		"""Calculates the angle between two vectors."""
-		return arccos((self * w) / (self.length() * w.length()))
+		return (self * w) / (self.length() * w.length())
 
 	def __add__(self, other):
 		return eval(self._REPR % tuple(list(map(lambda x, y: x + y, self, other))))

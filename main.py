@@ -30,5 +30,5 @@ if __name__ == '__main__':
     objects = [sphere_top, sphere_left, sphere_right, plane]
 
     img = Picture(WIDTH, HEIGHT, camera,
-                  light, objects, reflection=0)
+                  light, objects, reflection=1)
     img.castRays()

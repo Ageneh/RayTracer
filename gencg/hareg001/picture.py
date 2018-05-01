@@ -68,9 +68,9 @@ class Picture(object):
 		# (S44)
 		l = (light_origin - intersection).normalize()
 
-		n = object.normalAt(intersection)
-		l_reflected = l.reflect(n)
-		d = ray.origin - intersection
+		n = object.normalAt(intersection).normalize()
+		l_reflected = l.reflect(n).normalize()
+		d = (ray.origin - intersection).normalize()
 
 		phi = n.calcAngle(l)
 		# angle between the normal of the intersection point and
@@ -133,8 +133,8 @@ class Picture(object):
 		# (S47)
 		hitPointData = self.intersect(level, ray, max_level=3)
 		if hitPointData: # if there is an intersection (ray and object)
-			intersection = ray.pointAt(hitPointData[HitPointData._DIST])
-			l = self.light.origin - intersection
+			# intersection = ray.pointAt(hitPointData[HitPointData._DIST])
+			# l = self.light.origin - intersection
 			shade = self.shade(level, hitPointData)
 
 			return shade
