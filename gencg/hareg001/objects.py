@@ -103,6 +103,25 @@ class Material(object):
 				self.diffuse, self.diffuseLvl,
 				self.spec, self.specLvl)
 
+class CheckerBoard:
+
+	def __init__(self):
+		self.baseColor = Color(255, 255, 255)
+		self.othercolor = Color(0, 0, 0)
+		self.ambient = 1.0
+		self.diffuse = 0.4
+		self.specular = 0.3
+		self.checksize = 1
+		self.reflect= 0.4
+
+	def baseColorAt(self, p):
+		scale = 1.0 / self.checksize
+		p.scale(scale)
+		if (int(abs(p[0]) + 0.5) + int(abs(p[1]) + 0.5) + int(abs(p[2]) + 0.5)) % 2:
+			return self.othercolor
+		else:
+			return self.baseColor
+
 
 # –––––––––––––––– - –––––––––––––––– #
 
@@ -346,16 +365,11 @@ class Camera(object):
 # –––––––––––––––– - –––––––––––––––– #
 
 class HitPointData():
-	_RAY = "ray"
-	_OBJ = "obj"
-	_DIST = "dist"
 
 	def __init__(self, ray=None, obj=None, dist=None):
-		self.data = {
-			"ray": ray,
-			"obj": obj,
-			"dist": dist
-		}
+		self._RAY = ray
+		self._OBJ = obj
+		self._DIST = dist
 
 	def __getitem__(self, item):
 		if type(item) == str and item in self.data.keys():
