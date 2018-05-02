@@ -169,7 +169,7 @@ class Vector(object):
 		return self / self.length()
 
 	def reflect(self, reflection_axis):
-		return self - (2 * (self.scalar(reflection_axis)) * reflection_axis)  # (S48)
+		return self - 2 * self.scalar(reflection_axis) * reflection_axis  # (S48)
 
 	def calcAngle(self, w):
 		"""Calculates the angle between two vectors."""
@@ -188,9 +188,9 @@ class Vector(object):
 		if type(item) == int:
 			return self.coordinates[item]
 		elif type(item) == str:
-			if item.lower() == "x": return self.coordinates[0]
-			elif item.lower() == "y": return self.coordinates[1]
-			elif item.lower() == "z": return self.coordinates[2]
+			if item.lower() == "x": return self[0]
+			elif item.lower() == "y": return self[1]
+			elif item.lower() == "z": return self[2]
 		elif type(item) == slice:
 			return self.coordinates[item]
 

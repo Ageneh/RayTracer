@@ -1,4 +1,4 @@
-from math import tan, acos
+from math import tan
 
 from PIL import Image
 from gencg.hareg001.objects import *
@@ -14,15 +14,16 @@ class Picture:
 
 		self.reflection = reflection  # reflectiveness of the objects
 
+		self.image = None
 		self.light = light
 		self.objects = objects
 		self.camera = camera
-		self.image = None
 
 		self.height = 2 * tan(self.camera.alpha)
 		self.width = self.ratio * self.height
 
-		self.pixelW, self.pixelH = self.width / (self.resX - 1), self.height / (self.resY - 1)
+		self.pixelW = self.width / (self.resX - 1)
+		self.pixelH = self.height / (self.resY - 1)
 
 	# given
 	def castRays(self):
@@ -37,22 +38,23 @@ class Picture:
 				self.image.putpixel((x, y), color.toRGB()) # color the pixel in image
 
 		self.image.save(
-			"/Users/HxA/PycharmProjects/RayTracer" + str(int(round(time.time() * 1000))) + "_" + _prop_str + ".jpg",
-			"JPEG", quality=90)
+			"/Users/HxA/PycharmProjects/RayTracer" + str(int(round(time.time() * 1000))) + "_" + _prop_str + "" + ".jpg", "JPEG", quality=90)
 		self.image.show()
 
 	# given
 	def calcRay(self, x, y):
-		xComp = self.camera.s.scale((x * self.pixelW - self.width / 2))  # scales width of each pixel
-		yComp = self.camera.u.scale((y * self.pixelH - self.height / 2))  # s# cales height of each pixel
+		xComp = self.camera.s.scale((x * self.pixelW - self.width / 2.0))  # scales width of each pixel
+		yComp = self.camera.u.scale((y * self.pixelH - self.height / 2.0))  # s# cales height of each pixel
 		return Ray(self.camera.origin, self.camera.f + xComp + yComp)
 
 	# given
 	def traceRay(self, level, ray):
 		"""Trace ray and check for intersection. Closest intersection will then be used in shade(level, hit)."""
 		# (S47)
-		hitPointData = self.intersect(level, ray, max_level=3)
+		hitPointData = self.intersect(level, ray, max_level=1)
 		if hitPointData: # if there is an intersection (ray and object)
+			if self.objectBetween(hitPointData):
+				return self.computeShadedColor(hitPointData)
 			shade = self.shade(level, hitPointData)
 			return shade
 		return self._BG_COLOR
@@ -60,17 +62,28 @@ class Picture:
 	# given
 	def shade(self, level, hit):  # (S47)
 		"""Uses the data from the hit and calculates a color."""
-
-		shaded = self.computeShadedColor(hit)
-		if shaded != None:  # check if there is an object between p and light.origin
-			directC = shaded
-		else:
-			directC = self.computeDirectLight(hit) # the color where the direct light is illuminating # color
-		reflectedR = self.computeReflectedRay(hit) # compute reflection of ray # ray
-		reflectedC = self.traceRay(level+1, reflectedR) # color of reflection # color
+		directC = self.computeDirectLight(hit)  # the color where the direct light is illuminating # color
+		reflectedC = self.traceRay(level+1, self.computeReflectedRay(hit))  # color of reflection # color
 		return directC + (reflectedC * self.reflection)
 
-	################################### # ################################### # ###################################
+	# ################################## # ################################### # ################################## #
+
+	# check if there is an object between light and intersection
+	def objectBetween(self, hit):
+		ray = hit._RAY
+		dist = hit._DIST
+
+		# ################## #
+		p = ray.pointAt(dist)  # intersection
+		l = (self.light.origin - p)  # vector from p to light source
+		l_ray = Ray(p, l)  # ray from p to light
+		# ################## #
+
+		for obj in self.objects:
+			hitdist = obj.intersection(l_ray)
+			if hitdist and 0.001 < hitdist < l.length():
+				return True
+		return False
 
 	def computeDirectLight(self, hit):
 		lightColor = white
@@ -94,46 +107,23 @@ class Picture:
 		theta = lr.scalar(d_)
 
 		# ambient
-		ambient = material.color * material.ambientLvl
+		ambient = material.color
 		# diffuse
-		diffuse = lightColor * material.diffuseLvl * phi
+		diffuse = lightColor * 0.3 * phi
 		# specular
-		specular = lightColor * material.specLvl * (theta ** material.surface)
+		specular = lightColor * 0.3 * theta
 
-		vals = [diffuse, specular]
-		for k in range(len(vals)):
-			for i in range(len(vals[k].toRGB())):
-				val = vals[k].toRGB()[i]
-				if 0 < val < 255: continue
-				if val < 0: vals[k] = black
-				elif val > 255: vals[k] = white
-				break
-		diffuse, specular = vals[0], vals[1]
+		# vals = [diffuse, specular]
+		# for k in range(len(vals)):
+		# 	for i in range(len(vals[k].toRGB())):
+		# 		val = vals[k].toRGB()[i]
+		# 		if 0 < val < 255: continue
+		# 		if val < 0: vals[k] = darkgrey
+		# 		elif val > 255: vals[k] = white
+		# 		break
+		# diffuse, specular = vals[0], vals[1]
 
 		return ambient + diffuse + specular
-
-		# ###########
-		#
-		# finalColor += object.mat.color * object.mat.ambientLvl
-		#
-		# diffMulti = n.scalar(l)
-		# specMulti = lr.scalar(d_)
-		#
-		# diffuse = object.mat.color * object.mat.diffuseLvl * diffMulti
-		# if diffuse[0] < 0 or diffuse[1] < 0 or diffuse[2] < 0: diffuse = black
-		# elif diffuse[0] > 255 or diffuse[1] > 255 or diffuse[2] > 255: diffuse = white
-		#
-		# specular = object.mat.color * object.mat.specLvl * specMulti
-		# if specular[0] < 0 or specular[1] < 0 or specular[2] < 0: specular = black
-		# elif specular[0] > 255 or specular[1] > 255 or specular[2] > 255: specular = white
-		#
-		# finalColor += diffuse * object.mat.diffuseLvl * diffMulti
-		# finalColor += specular * object.mat.specLvl * specMulti
-		#
-		# if type(object.mat) == Texture_Checkerboard:
-		# 	return object.mat.color(p, diffMulti, specMulti)
-		#
-		# return finalColor
 
 	def computeShadedColor(self, hit):
 		ray = hit._RAY
@@ -142,15 +132,14 @@ class Picture:
 
 		# ################## #
 		p = ray.pointAt(dist)  # intersection
-		l = (self.light.origin - p)  # vector from p to light source
+		n = object.normalAt(p).normalize()
+		l = (self.light.origin - p).normalize()  # vector from p to light source
+		lr = l.reflect(n).normalize()  # reflected l vector
 		l_ray = Ray(p, l)  # ray from p to light
+		d_ = (ray.origin - p).normalize()  # vector from p to camera origin
 		# ################## #
 
-		for obj in self.objects:
-			hitdist = obj.intersection(l_ray)
-			if hitdist and 0.001 < hitdist < l.length():
-				return object.mat.color * 0.2 #* object.mat.ambientLvl
-		return None
+		return object.mat.color * l.scalar(n)
 
 	# DONE
 	def computeReflectedRay(self, hit):
