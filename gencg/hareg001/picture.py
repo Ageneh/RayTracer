@@ -6,6 +6,8 @@ import time
 
 class Picture(object):
 
+	MAXREC = 0
+
 	_BG_COLOR = Color(0, 0, 0)
 
 	def __init__(self, resX, resY, camera, light, objects, reflection=0):
@@ -33,7 +35,7 @@ class Picture(object):
 			for y in range(self.resY):
 				# for each pixel of the image ...
 				ray = self.calcRay(x, y) # calculate a ray in the image
-				color = self.traceRay(1, ray) # follow ray and find color of pixel at its intersection
+				color = self.traceRay(0, ray) # follow ray and find color of pixel at its intersection
 				self.image.putpixel((x, y), color.toRGB()) # color the pixel in image
 
 		self.image.save(
@@ -45,21 +47,6 @@ class Picture(object):
 		xComp = self.camera.s.scale((x * self.pixelW - self.width / 2))  # scales width of each pixel
 		yComp = self.camera.u.scale((y * self.pixelH - self.height / 2))  # s# cales height of each pixel
 		return Ray(self.camera.origin, self.camera.f + xComp + yComp)
-
-	def traceRay_(self, level, ray):  # (S47)
-		hitPointData = self.intersect(level, ray)
-
-		if hitPointData:  #if the ray intersects an object
-			hit = self.objectBetween(hitPointData)
-			if hit == True:
-				#return hitPointData._OBJ.mat.color(0, 0) *0.2
-				return yellow
-			elif hit is None:
-				return blue
-			#return self.shade(level, hitPointData)
-			return hitPointData._OBJ.mat.ambient
-
-		return self._BG_COLOR
 
 	# check if there is an object between light and intersection
 	def objectBetween(self, hit):
@@ -79,14 +66,6 @@ class Picture(object):
 			if hitdist and l_dist:
 				if 0.01 < hitdist < l_dist:
 					return True
-
-		# for obj in self.objects:
-		# 	hitdist = obj.intersection(l_ray)
-		# 	inter_ = self.light.origin
-		# 	if hitdist:
-		# 		if 0.01 < l_dist < hitdist:
-		# 			return True
-		# return False
 		return False
 
 	def computeShadedColor(self, hit):
@@ -105,7 +84,6 @@ class Picture(object):
 
 		return object.mat.color*0.2 # * l.scalar(n)
 
-	# ORIGINAL
 	def computeDirectLight(self, hit):
 		ray = hit._RAY
 		object = hit._OBJ
@@ -114,7 +92,6 @@ class Picture(object):
 		# angle between two vectors: <v,w> / ||v||*||w||
 
 		light_origin = self.light.origin
-		light_intensity = self.light.intensity
 		intersection = ray.pointAt(dist)  # the point where the ray intersects the object #vector
 
 		# (S44)
@@ -123,17 +100,18 @@ class Picture(object):
 		l_reflected = l.reflect(n).normalize()
 		d = (ray.origin - intersection).normalize()
 
-		#phi = n.calcAngle(l)
 		phi = l.scalar(n)
 		# angle between the normal of the intersection point and
 		# the light vector; used as the factor by which the
 		# diffusion color will be multiplied
 
-		#theta = d.calcAngle(l_reflected)
 		theta = l_reflected.scalar(d * -1)
-		# angle between the normal of the intersection point and
+		# angle between the nxormal of the intersection point and
 		# the light vector; used as the factor by which the
 		# diffusion color will be multiplied
+
+		if type(object.mat) == CheckerBoard:
+			return object.mat.baseColorAt(intersection).color(diffMulti=phi, specMulti=theta)
 
 		return object.mat.color(diffMulti=phi, specMulti=theta)
 
@@ -145,7 +123,7 @@ class Picture(object):
 		s = ray.pointAt(dist) # intersection
 		n = object.normalAt(s) # normal at intersection
 
-		return Ray(s, ray.direction.reflect(n).normalize()) # reflected ray
+		return Ray(s, ray.direction.reflect(n)) # reflected ray
 
 	def color(self, hit):
 		ray = hit._RAY
@@ -161,8 +139,8 @@ class Picture(object):
 			return 0.1
 		return 1
 
-	def intersect(self, level, ray, max_level=3):
-		if level > max_level: return None
+	def intersect(self, level, ray):
+		if level > self.MAXREC: return None
 
 		maxDist = float('inf')
 		_obj = None
@@ -183,15 +161,19 @@ class Picture(object):
 
 	def traceRay(self, level, ray):
 		# (S47)
-		hitPointData = self.intersect(level, ray, max_level=3)
+		hitPointData = self.intersect(level, ray)
 		if hitPointData:  #if the ray intersects an object
 			hit = self.objectBetween(hitPointData)
 			if hit == True:
+				ray = hitPointData._RAY
+				obj = hitPointData._OBJ
+				dist = hitPointData._DIST
+				if type(obj.mat) == CheckerBoard:
+					mat = obj.mat.baseColorAt(ray.pointAt(dist))
+					return mat.color(0, 0) * mat.ambientLvl
 				return hitPointData._OBJ.mat.color(0, 0) * hitPointData._OBJ.mat.ambientLvl
-				#return yellow
 			else:
 				return self.shade(level, hitPointData)
-				#return hitPointData._OBJ.mat.ambient
 
 		return self._BG_COLOR
 

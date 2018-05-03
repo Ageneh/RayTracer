@@ -106,12 +106,12 @@ class Material(object):
 class CheckerBoard:
 
 	def __init__(self):
-		self.baseColor = Color(255, 255, 255)
-		self.othercolor = Color(0, 0, 0)
+		self.baseColor = Material(black, 0.3, darkgrey, 0.2, darkgrey, 0.4)
+		self.othercolor = Material(white, 0.3, lightgrey, 0.2, lightgrey, 0.4)
 		self.ambient = 1.0
 		self.diffuse = 0.4
 		self.specular = 0.3
-		self.checksize = 1
+		self.checksize = 100
 		self.reflect= 0.4
 
 	def baseColorAt(self, p):

@@ -1,7 +1,7 @@
 from gencg.hareg001.picture import *
 
-WIDTH = 500
-HEIGHT = 500
+WIDTH = 300
+HEIGHT = 300
 
 if __name__ == '__main__':
     up = Vector(0, 1, 0)
@@ -21,7 +21,8 @@ if __name__ == '__main__':
     plane = Plane(
             Vector(0, -55, 70),
             Vector(0, 1, 0),
-            Material(grey, 0.4, grey*0.3, 0.1, grey, 0.3)
+            CheckerBoard()
+            #Material(grey, 0.4, grey*0.3, 0.3, grey, 0.4)
     )
 
     camera = Camera(Vector(0, 0, 0), Vector(0, -20, 250), up, 120)
